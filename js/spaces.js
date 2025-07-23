@@ -392,37 +392,30 @@ import { utils } from './utils.js';
         }
     }
 
-    function handleBackup() {
-        const leanSpaces = [];
-
-        fetchAllSpaces(spaces => {
-            // strip out unnessary content from each space
-            spaces.forEach(space => {
-                const leanTabs = [];
-                space.tabs.forEach(curTab => {
-                    leanTabs.push({
+    async function handleBackup() {
+        // strip out unnessary content from each space
+        const leanSpaces = (await fetchAllSpaces()).map(space => {
+            return {
+                name: space.name,
+                tabs: space.tabs.map(curTab => {
+                    return {
                         title: curTab.title,
                         url: normaliseTabUrl(curTab.url),
                         favIconUrl: curTab.favIconUrl,
-                    });
-                });
-
-                leanSpaces.push({
-                    name: space.name,
-                    tabs: leanTabs,
-                });
-            });
-
-            const blob = new Blob([JSON.stringify(leanSpaces)], {
-                type: 'application/json',
-            });
-            const blobUrl = URL.createObjectURL(blob);
-            const filename = 'spaces-backup.json';
-            const link = document.createElement('a');
-            link.setAttribute('href', blobUrl);
-            link.setAttribute('download', filename);
-            link.click();
+                    };
+                }),
+            };
         });
+
+        const blob = new Blob([JSON.stringify(leanSpaces)], {
+            type: 'application/json',
+        });
+        const blobUrl = URL.createObjectURL(blob);
+        const filename = 'spaces-backup.json';
+        const link = document.createElement('a');
+        link.setAttribute('href', blobUrl);
+        link.setAttribute('download', filename);
+        link.click();
     }
 
     async function handleExport() {
@@ -455,24 +448,21 @@ import { utils } from './utils.js';
         return normalisedUrl;
     }
 
-    // SERVICES
+// SERVICES
 
-    function fetchAllSpaces(callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'requestAllSpaces',
-            },
-            callback
-        );
-    }
+async function fetchAllSpaces() {
+    return await chrome.runtime.sendMessage({
+        action: 'requestAllSpaces',
+    });
+}
 
-    async function fetchSpaceDetail(sessionId, windowId) {
-        return await chrome.runtime.sendMessage({
-            action: 'requestSpaceDetail',
-            sessionId: sessionId || false,
-            windowId: windowId || false,
-        });
-    }
+async function fetchSpaceDetail(sessionId, windowId) {
+    return await chrome.runtime.sendMessage({
+        action: 'requestSpaceDetail',
+        sessionId: sessionId || false,
+        windowId: windowId || false,
+    });
+}
 
     function performLoadSession(sessionId, callback) {
         chrome.runtime.sendMessage(
@@ -689,19 +679,18 @@ import { utils } from './utils.js';
         return false;
     }
 
-    function updateSpacesList(spaces) {
+    async function updateSpacesList(spaces) {
         // if spaces passed in then re-render immediately
         if (spaces) {
             renderSpacesList(spaces);
 
             // otherwise do a fetch of spaces first
         } else {
-            fetchAllSpaces(newSpaces => {
-                renderSpacesList(newSpaces);
+            const newSpaces = await fetchAllSpaces();
+            renderSpacesList(newSpaces);
 
-                // determine if welcome banner should show
-                initialiseBanner(newSpaces);
-            });
+            // determine if welcome banner should show
+            initialiseBanner(newSpaces);
         }
     }
 
