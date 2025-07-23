@@ -1,6 +1,7 @@
 /* global chrome, spacesRenderer  */
 
-(() => {
+import { spacesRenderer } from './spacesRenderer.js';
+
     function getSelectedSpace() {
         return document.querySelector('.space.selected');
     }
@@ -19,8 +20,9 @@
         });
     }
 
-    function getSwitchKeycodes(callback) {
-        chrome.runtime.sendMessage({ action: 'requestHotkeys' }, commands => {
+    async function getSwitchKeycodes(callback) {
+            const commands = await chrome.commands.getAll();
+
             // eslint-disable-next-line no-console
             console.dir(commands);
 
@@ -50,7 +52,6 @@
                 secondaryModifier,
                 mainKeyCode,
             });
-        });
     }
 
     function addEventListeners() {
@@ -87,4 +88,3 @@
             addEventListeners();
         });
     };
-})();

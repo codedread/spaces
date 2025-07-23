@@ -1,9 +1,7 @@
 //The MIT License
 //Copyright (c) 2012 Aaron Powell
-
-(function(window, undefined) {
-    'use strict';
-
+//Conversion to ES Module by codedread
+const window = self;
     var indexedDB,
         IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange,
         transactionModes = {
@@ -550,7 +548,7 @@
 
     var dbCache = {};
 
-    var db = {
+    export var db = {
         version: '0.9.2',
         open: function(options) {
             var request;
@@ -592,17 +590,3 @@
             });
         },
     };
-
-    if (
-        typeof module !== 'undefined' &&
-        typeof module.exports !== 'undefined'
-    ) {
-        module.exports = db;
-    } else if (typeof define === 'function' && define.amd) {
-        define(function() {
-            return db;
-        });
-    } else {
-        window.db = db;
-    }
-})(window);

@@ -4,8 +4,10 @@
  * Copyright (C) 2015 Dean Oemcke
  */
 
+import { dbService } from './dbService.js';
+
 // eslint-disable-next-line no-var
-var spacesService = {
+export var spacesService = {
     tabHistoryUrlMap: {},
     closedWindowIds: {},
     sessions: [],
@@ -18,9 +20,9 @@ var spacesService = {
     noop: () => {},
 
     // initialise spaces - combine open windows with saved sessions
-    initialiseSpaces: () => {
+    initialiseSpaces: async () => {
         // update version numbers
-        spacesService.lastVersion = spacesService.fetchLastVersion();
+        spacesService.lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
 
         dbService.fetchAllSessions(sessions => {
@@ -225,17 +227,17 @@ var spacesService = {
     },
 
     // local storage getters/setters
-    fetchLastVersion: () => {
-        let version = localStorage.getItem('spacesVersion');
-        if (version !== null) {
-            version = JSON.parse(version);
+    fetchLastVersion: async () => {
+        let version = await chrome.storage.local.get(['spacesVersion']);
+        if (version !== null && version['spacesVersion']) {
+            version = JSON.parse(version['spacesVersion']);
             return version;
         }
         return 0;
     },
 
     setLastVersion: newVersion => {
-        localStorage.setItem('spacesVersion', JSON.stringify(newVersion));
+        chrome.storage.local.set({'spacesVersion': JSON.stringify(newVersion)});
     },
 
     // event listener functions for window and tab events

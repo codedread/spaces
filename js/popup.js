@@ -1,5 +1,8 @@
 /* global chrome spacesRenderer */
 
+import { spacesRenderer } from './spacesRenderer.js';
+import { utils } from './utils.js';
+
 (() => {
     const UNSAVED_SESSION = '(unnamed window)';
     const NO_HOTKEY = 'no hotkey set';
@@ -16,13 +19,10 @@
      */
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const { utils, spaces } = chrome.extension.getBackgroundPage();
         const url = utils.getHashVariable('url', window.location.href);
         globalUrl = url !== '' ? decodeURIComponent(url) : false;
-        const windowId = utils.getHashVariable(
-            'windowId',
-            window.location.href
-        );
+        const currentWindow = await chrome.windows.getCurrent({ populate: true });
+        const windowId = currentWindow.id;
         globalWindowId = windowId !== '' ? windowId : false;
         globalTabId = utils.getHashVariable('tabId', window.location.href);
         const sessionName = utils.getHashVariable(
@@ -34,13 +34,8 @@
         const action = utils.getHashVariable('action', window.location.href);
 
         const requestSpacePromise = globalWindowId
-            ? new Promise(resolve =>
-                  spaces.requestSpaceFromWindowId(
-                      parseInt(globalWindowId, 10),
-                      resolve
-                  )
-              )
-            : new Promise(resolve => spaces.requestCurrentSpace(resolve));
+            ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
+            : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
 
         requestSpacePromise.then(space => {
             globalCurrentSpace = space;
@@ -115,16 +110,14 @@
      * MAIN POPUP VIEW
      */
 
-    function renderMainCard() {
-        const { spaces } = chrome.extension.getBackgroundPage();
-        spaces.requestHotkeys(hotkeys => {
+    async function renderMainCard() {
+        const hotkeys = await requestHotkeys();
             document.querySelector(
                 '#switcherLink .hotkey'
             ).innerHTML = hotkeys.switchCode ? hotkeys.switchCode : NO_HOTKEY;
             document.querySelector(
                 '#moverLink .hotkey'
             ).innerHTML = hotkeys.moveCode ? hotkeys.moveCode : NO_HOTKEY;
-        });
 
         const hotkeyEls = document.querySelectorAll('.hotkey');
         for (let i = 0; i < hotkeyEls.length; i += 1) {
@@ -146,24 +139,49 @@
             });
         document
             .querySelector('#switcherLink .optionText')
-            .addEventListener('click', () => {
-                spaces.generatePopupParams('switch').then(params => {
+            .addEventListener('click', async () => {
+                chrome.runtime.sendMessage({'action': 'switch',}).then(params => {
                     if (!params) return;
                     window.location.hash = params;
                     window.location.reload();
                 });
-                // renderSwitchCard()
+                renderSwitchCard();
             });
         document
             .querySelector('#moverLink .optionText')
             .addEventListener('click', () => {
-                spaces.generatePopupParams('move').then(params => {
+                chrome.runtime.sendMessage({'action': 'generatePopupParams',}).then(params => {
                     if (!params) return;
                     window.location.hash = params;
                     window.location.reload();
                 });
                 // renderMoveCard()
             });
+    }
+
+    async function requestHotkeys() {
+        console.log('requestHotkeys called');
+        const commands = await chrome.commands.getAll();
+        console.dir(commands);
+        let switchStr;
+        let moveStr;
+        let spacesStr;
+
+        commands.forEach(command => {
+            if (command.name === 'spaces-switch') {
+                switchStr = command.shortcut;
+            } else if (command.name === 'spaces-move') {
+                moveStr = command.shortcut;
+            } else if (command.name === 'spaces-open') {
+                spacesStr = command.shortcut;
+            }
+        });
+
+        return {
+            switchCode: switchStr,
+            moveCode: moveStr,
+            spacesCode: spacesStr,
+        };
     }
 
     function handleNameEdit() {
@@ -174,7 +192,7 @@
         }
     }
 
-    function handleNameSave() {
+    async function handleNameSave() {
         const inputEl = document.getElementById('activeSpaceTitle');
         const newName = inputEl.value;
 
@@ -185,10 +203,16 @@
             return;
         }
 
+        const canOverwrite = await utils.checkSessionOverwrite(newName);
+        if (!canOverwrite) {
+            return;
+        }
+
         if (globalCurrentSpace.sessionId) {
             chrome.runtime.sendMessage(
                 {
                     action: 'updateSessionName',
+                    deleteOld: true,
                     sessionName: newName,
                     sessionId: globalCurrentSpace.sessionId,
                 },
@@ -198,6 +222,7 @@
             chrome.runtime.sendMessage(
                 {
                     action: 'saveNewSession',
+                    deleteOld: true,
                     sessionName: newName,
                     windowId: globalCurrentSpace.windowId,
                 },
@@ -237,12 +262,14 @@
         return document.querySelector('.space.selected');
     }
 
-    function handleSwitchAction(selectedSpaceEl) {
-        chrome.runtime.sendMessage({
+    async function handleSwitchAction(selectedSpaceEl) {
+        await chrome.runtime.sendMessage({
             action: 'switchToSpace',
             sessionId: selectedSpaceEl.getAttribute('data-sessionId'),
             windowId: selectedSpaceEl.getAttribute('data-windowId'),
         });
+        // Wait for the response from the background message handler before
+        // closing the window.
         window.close();
     }
 

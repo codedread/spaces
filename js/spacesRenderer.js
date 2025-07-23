@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-var
-var spacesRenderer = {
+export var spacesRenderer = {
     nodes: {},
     maxSuggestions: 10,
     oneClickMode: false,

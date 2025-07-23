@@ -1,7 +1,9 @@
 /* global chrome */
 
-(() => {
-    const UNSAVED_SESSION = '<em>Unnamed window</em>';
+import { utils } from './utils.js';
+
+    const UNSAVED_SESSION_NAME = 'Unnamed window';
+    const UNSAVED_SESSION = `<em>${UNSAVED_SESSION_NAME}</em>`;
     const nodes = {};
     let globalSelectedSpace;
     let bannerState;
@@ -298,7 +300,7 @@
         }
     }
 
-    function handleNameSave() {
+    async function handleNameSave() {
         const newName = nodes.nameFormInput.value;
         const oldName = globalSelectedSpace.name;
         const { sessionId } = globalSelectedSpace;
@@ -308,6 +310,11 @@
         if (newName === oldName || newName.trim() === '') {
             updateNameForm(globalSelectedSpace);
             toggleNameEditMode(false);
+            return;
+        }
+
+        const canOverwrite = await utils.checkSessionOverwrite(newName);
+        if (!canOverwrite) {
             return;
         }
 
@@ -328,30 +335,42 @@
         }
     }
 
-    function handleDelete() {
+    async function handleDelete() {
         const { sessionId } = globalSelectedSpace;
-
         if (sessionId) {
-            performDelete(sessionId, () => {
-                updateSpacesList();
-                reroute(false, false, true);
-            });
+            const session = await fetchSpaceDetail(sessionId, false);
+            if (!session) {
+                console.error(
+                    `handleDelete: No session found with id ${sessionId}`
+                );
+                return;
+            }
+            const sessionName = session.name || UNSAVED_SESSION_NAME;
+            const confirm = window.confirm(
+                `Are you sure you want to delete the space: ${sessionName}?`
+            );
+
+            if (confirm) {
+                performDelete(sessionId, () => {
+                    updateSpacesList();
+                    reroute(false, false, true);
+                });
+            }
         }
     }
 
     // import accepts either a newline separated list of urls or a json backup object
-    function handleImport() {
+    async function handleImport() {
         let urlList;
-        let spacesObject;
+        let spaces;
 
         const rawInput = nodes.modalInput.value;
 
         // check for json object
         try {
-            spacesObject = JSON.parse(rawInput);
-            performRestoreFromBackup(spacesObject, () => {
-                updateSpacesList();
-            });
+            spaces = JSON.parse(rawInput);
+            await performRestoreFromBackup(spaces);
+            updateSpacesList();
         } catch (e) {
             // otherwise treat as a list of newline separated urls
             if (rawInput.trim().length > 0) {
@@ -406,27 +425,26 @@
         });
     }
 
-    function handleExport() {
+    async function handleExport() {
         const { sessionId } = globalSelectedSpace;
         const { windowId } = globalSelectedSpace;
         let csvContent = '';
         let dataString = '';
 
-        fetchSpaceDetail(sessionId, windowId, space => {
-            space.tabs.forEach(curTab => {
-                const url = normaliseTabUrl(curTab.url);
-                dataString += `${url}\n`;
-            });
-            csvContent += dataString;
-
-            const blob = new Blob([csvContent], { type: 'text/plain' });
-            const blobUrl = URL.createObjectURL(blob);
-            const filename = `${space.name || 'untitled'}.txt`;
-            const link = document.createElement('a');
-            link.setAttribute('href', blobUrl);
-            link.setAttribute('download', filename);
-            link.click();
+        const space = await fetchSpaceDetail(sessionId, windowId);
+        space.tabs.forEach(curTab => {
+            const url = normaliseTabUrl(curTab.url);
+            dataString += `${url}\n`;
         });
+        csvContent += dataString;
+
+        const blob = new Blob([csvContent], { type: 'text/plain' });
+        const blobUrl = URL.createObjectURL(blob);
+        const filename = `${space.name || 'untitled'}.txt`;
+        const link = document.createElement('a');
+        link.setAttribute('href', blobUrl);
+        link.setAttribute('download', filename);
+        link.click();
     }
 
     function normaliseTabUrl(url) {
@@ -448,15 +466,12 @@
         );
     }
 
-    function fetchSpaceDetail(sessionId, windowId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'requestSpaceDetail',
-                sessionId: sessionId || false,
-                windowId: windowId || false,
-            },
-            callback
-        );
+    async function fetchSpaceDetail(sessionId, windowId) {
+        return await chrome.runtime.sendMessage({
+            action: 'requestSpaceDetail',
+            sessionId: sessionId || false,
+            windowId: windowId || false,
+        });
     }
 
     function performLoadSession(sessionId, callback) {
@@ -515,6 +530,7 @@
         chrome.runtime.sendMessage(
             {
                 action: 'updateSessionName',
+                deleteOld: true,
                 sessionName: newName,
                 sessionId,
             },
@@ -526,6 +542,7 @@
         chrome.runtime.sendMessage(
             {
                 action: 'saveNewSession',
+                deleteOld: true,
                 sessionName: newName,
                 windowId,
             },
@@ -543,14 +560,21 @@
         );
     }
 
-    function performRestoreFromBackup(spacesObject, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'restoreFromBackup',
-                spaces: spacesObject,
-            },
-            callback
-        );
+    async function performRestoreFromBackup(spaces) {
+        for (const space of spaces) {
+            const canOverwrite = await utils.checkSessionOverwrite(space.name);
+            if (!canOverwrite) {
+                continue;
+            }
+
+            await chrome.runtime.sendMessage(
+                {
+                    action: 'restoreFromBackup',
+                    deleteOld: true,
+                    space,
+                }
+            );
+        }
     }
 
     // EVENT LISTENERS FOR STATIC DOM ELEMENTS
@@ -681,7 +705,7 @@
         }
     }
 
-    function updateSpaceDetail(useCachedSpace) {
+    async function updateSpaceDetail(useCachedSpace) {
         const sessionId = getVariableFromHash('sessionId');
         const windowId = getVariableFromHash('windowId');
         const editMode = getVariableFromHash('editMode');
@@ -693,13 +717,12 @@
 
             // otherwise refetch space based on hashvars
         } else if (sessionId || windowId) {
-            fetchSpaceDetail(sessionId, windowId, space => {
-                addDuplicateMetadata(space);
+            const space = await fetchSpaceDetail(sessionId, windowId);
+            addDuplicateMetadata(space);
 
-                // cache current selected space
-                globalSelectedSpace = space;
-                renderSpaceDetail(space, editMode);
-            });
+            // cache current selected space
+            globalSelectedSpace = space;
+            renderSpaceDetail(space, editMode);
 
             // otherwise hide space detail view
         } else {
@@ -751,7 +774,7 @@
         nodes.modalInput = document.getElementById('importTextArea');
         nodes.modalButton = document.getElementById('importBtn');
 
-        nodes.home.setAttribute('href', chrome.extension.getURL('spaces.html'));
+        nodes.home.setAttribute('href', chrome.runtime.getURL('spaces.html'));
 
         // initialise event listeners for static elements
         addEventListeners();
@@ -762,4 +785,3 @@
         // render main content
         updateSpaceDetail();
     };
-})();
