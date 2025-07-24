@@ -157,6 +157,7 @@ import { utils } from './utils.js';
         if (tab.favIconUrl && tab.favIconUrl.indexOf('chrome://theme') < 0) {
             faviconSrc = tab.favIconUrl;
         } else {
+            // TODO(codedread): Fix this, it errors.
             faviconSrc = `chrome://favicon/${tab.url}`;
         }
         faviconEl.setAttribute('src', faviconSrc);
@@ -193,39 +194,36 @@ import { utils } from './utils.js';
         }
     }
 
-    function setBannerState(state) {
+    async function setBannerState(state) {
         const lessonOneEl = document.getElementById('lessonOne');
         const lessonTwoEl = document.getElementById('lessonTwo');
 
         if (state !== bannerState) {
             bannerState = state;
 
-            toggleBanner(false, () => {
-                if (state > 0) {
-                    nodes.banner.style.display = 'block';
-                    if (state === 1) {
-                        lessonOneEl.style.display = 'block';
-                        lessonTwoEl.style.display = 'none';
-                    } else if (state === 2) {
-                        lessonOneEl.style.display = 'none';
-                        lessonTwoEl.style.display = 'block';
-                    }
-                    toggleBanner(true);
+            await toggleBanner(false);
+            if (state > 0) {
+                nodes.banner.style.display = 'block';
+                if (state === 1) {
+                    lessonOneEl.style.display = 'block';
+                    lessonTwoEl.style.display = 'none';
+                } else if (state === 2) {
+                    lessonOneEl.style.display = 'none';
+                    lessonTwoEl.style.display = 'block';
                 }
-            });
+                await toggleBanner(true);
+            }
         }
     }
 
-    function toggleBanner(visible, callback) {
+async function toggleBanner(visible) {
+    return new Promise(resolve => {
         setTimeout(() => {
             nodes.banner.className = visible ? ' ' : 'hidden';
-            if (typeof callback === 'function') {
-                setTimeout(() => {
-                    callback();
-                }, 200);
-            }
+            setTimeout(() => resolve(), 200);
         }, 100);
-    }
+    });
+}
 
     function toggleModal(visible) {
         nodes.modalBlocker.style.display = visible ? 'block' : 'none';
@@ -239,25 +237,23 @@ import { utils } from './utils.js';
 
     // ACTION HANDLERS
 
-    function handleLoadSpace(sessionId, windowId) {
+    async function handleLoadSpace(sessionId, windowId) {
         if (sessionId) {
-            performLoadSession(sessionId, () => {
-                reroute(sessionId, false, false);
-            });
+            await performLoadSession(sessionId);
+            reroute(sessionId, false, false);
         } else if (windowId) {
-            performLoadWindow(windowId, () => {
-                reroute(false, windowId, false);
-            });
+            await performLoadWindow(windowId);
+            reroute(false, windowId, false);
         }
     }
 
-    function handleLoadTab(sessionId, windowId, tabUrl) {
+    async function handleLoadTab(sessionId, windowId, tabUrl) {
         const noop = () => {};
 
         if (sessionId) {
-            performLoadTabInSession(sessionId, tabUrl, noop);
+            await performLoadTabInSession(sessionId, tabUrl, noop);
         } else if (windowId) {
-            performLoadTabInWindow(windowId, tabUrl, noop);
+            await performLoadTabInWindow(windowId, tabUrl, noop);
         }
     }
 
@@ -320,13 +316,11 @@ import { utils } from './utils.js';
 
         // otherwise call the save service
         if (sessionId) {
-            performSessionUpdate(newName, sessionId, session => {
-                if (session) reroute(session.id, false, true);
-            });
+            const session = await performSessionUpdate(newName, sessionId);
+            if (session) reroute(session.id, false, true);
         } else if (windowId) {
-            performNewSessionSave(newName, windowId, session => {
-                if (session) reroute(session.id, false, true);
-            });
+            const session = await performNewSessionSave(newName, windowId);
+            if (session) reroute(session.id, false, true);
         }
 
         // handle banner
@@ -351,10 +345,9 @@ import { utils } from './utils.js';
             );
 
             if (confirm) {
-                performDelete(sessionId, () => {
-                    updateSpacesList();
-                    reroute(false, false, true);
-                });
+                await performDelete(sessionId);
+                updateSpacesList();
+                reroute(false, false, true);
             }
         }
     }
@@ -384,9 +377,8 @@ import { utils } from './utils.js';
                 });
 
                 if (urlList.length > 0) {
-                    performSessionImport(urlList, session => {
-                        if (session) reroute(session.id, false, true);
-                    });
+                    const session = await performSessionImport(urlList);
+                    if (session) reroute(session.id, false, true);
                 }
             }
         }
@@ -450,122 +442,107 @@ import { utils } from './utils.js';
 
 // SERVICES
 
+/** @returns {Promise<Space[]>} */
 async function fetchAllSpaces() {
-    return await chrome.runtime.sendMessage({
+    return chrome.runtime.sendMessage({
         action: 'requestAllSpaces',
     });
 }
 
+/** @returns {Promise<Space>} */
 async function fetchSpaceDetail(sessionId, windowId) {
-    return await chrome.runtime.sendMessage({
+    return chrome.runtime.sendMessage({
         action: 'requestSpaceDetail',
         sessionId: sessionId || false,
         windowId: windowId || false,
     });
 }
 
-    function performLoadSession(sessionId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'loadSession',
-                sessionId,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<void>} */
+async function performLoadSession(sessionId) {
+    return chrome.runtime.sendMessage({
+        action: 'loadSession',
+        sessionId,
+    });
+}
 
-    function performLoadWindow(windowId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'loadWindow',
-                windowId,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<void>} */
+async function performLoadWindow(windowId) {
+    return chrome.runtime.sendMessage({
+        action: 'loadWindow',
+        windowId,
+    });
+}
 
-    function performLoadTabInSession(sessionId, tabUrl, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'loadTabInSession',
-                sessionId,
-                tabUrl,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<void>} */
+async function performLoadTabInSession(sessionId, tabUrl) {
+    return chrome.runtime.sendMessage({
+        action: 'loadTabInSession',
+        sessionId,
+        tabUrl,
+    });
+}
 
-    function performLoadTabInWindow(windowId, tabUrl, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'loadTabInWindow',
-                windowId,
-                tabUrl,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<void>} */
+async function performLoadTabInWindow(windowId, tabUrl) {
+    return chrome.runtime.sendMessage({
+        action: 'loadTabInWindow',
+        windowId,
+        tabUrl,
+    });
+}
 
-    function performDelete(sessionId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'deleteSession',
-                sessionId,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<void>} */
+async function performDelete(sessionId) {
+    return chrome.runtime.sendMessage({
+        action: 'deleteSession',
+        sessionId,
+    });
+}
 
-    function performSessionUpdate(newName, sessionId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'updateSessionName',
-                deleteOld: true,
-                sessionName: newName,
-                sessionId,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<Space>} */
+async function performSessionUpdate(newName, sessionId) {
+    return chrome.runtime.sendMessage({
+        action: 'updateSessionName',
+        deleteOld: true,
+        sessionName: newName,
+        sessionId,
+    });
+}
 
-    function performNewSessionSave(newName, windowId, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'saveNewSession',
-                deleteOld: true,
-                sessionName: newName,
-                windowId,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<Space>} */
+async function performNewSessionSave(newName, windowId) {
+    return chrome.runtime.sendMessage({
+        action: 'saveNewSession',
+        deleteOld: true,
+        sessionName: newName,
+        windowId,
+    });
+}
 
-    function performSessionImport(urlList, callback) {
-        chrome.runtime.sendMessage(
-            {
-                action: 'importNewSession',
-                urlList,
-            },
-            callback
-        );
-    }
+/** @returns {Promise<Space>} */
+async function performSessionImport(urlList) {
+    return chrome.runtime.sendMessage({
+        action: 'importNewSession',
+        urlList,
+    });
+}
 
-    async function performRestoreFromBackup(spaces) {
-        for (const space of spaces) {
-            const canOverwrite = await utils.checkSessionOverwrite(space.name);
-            if (!canOverwrite) {
-                continue;
-            }
-
-            await chrome.runtime.sendMessage(
-                {
-                    action: 'restoreFromBackup',
-                    deleteOld: true,
-                    space,
-                }
-            );
+/** @returns {Promise<void>} */
+async function performRestoreFromBackup(spaces) {
+    for (const space of spaces) {
+        const canOverwrite = await utils.checkSessionOverwrite(space.name);
+        if (!canOverwrite) {
+            continue;
         }
+
+        await chrome.runtime.sendMessage({
+            action: 'restoreFromBackup',
+            deleteOld: true,
+            space,
+        });
     }
+}
 
     // EVENT LISTENERS FOR STATIC DOM ELEMENTS
 
