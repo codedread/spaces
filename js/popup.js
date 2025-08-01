@@ -3,7 +3,6 @@
 import { spacesRenderer } from './spacesRenderer.js';
 import { utils } from './utils.js';
 
-(() => {
     const UNSAVED_SESSION = '(unnamed window)';
     const NO_HOTKEY = 'no hotkey set';
 
@@ -149,12 +148,11 @@ import { utils } from './utils.js';
             });
         document
             .querySelector('#moverLink .optionText')
-            .addEventListener('click', () => {
-                chrome.runtime.sendMessage({'action': 'generatePopupParams',}).then(params => {
-                    if (!params) return;
-                    window.location.hash = params;
-                    window.location.reload();
-                });
+            .addEventListener('click', async () => {
+                const params = await chrome.runtime.sendMessage({'action': 'generatePopupParams'});
+                if (!params) return;
+                window.location.hash = params;
+                window.location.reload();
                 // renderMoveCard()
             });
     }
@@ -277,7 +275,7 @@ import { utils } from './utils.js';
      * MOVE VIEW
      */
 
-    function renderMoveCard() {
+    async function renderMoveCard() {
         document.getElementById(
             'popupContainer'
         ).innerHTML = document.getElementById('moveTemplate').innerHTML;
@@ -332,29 +330,23 @@ import { utils } from './utils.js';
 
         updateTabDetails();
 
-        chrome.runtime.sendMessage(
-            {
-                action: 'requestAllSpaces',
-            },
-            spaces => {
-                // remove currently visible space
-                const filteredSpaces = spaces.filter(space => {
-                    return `${space.windowId}` !== globalWindowId;
-                });
-                spacesRenderer.initialise(5, false);
-                spacesRenderer.renderSpaces(filteredSpaces);
+        const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
+        // remove currently visible space
+        const filteredSpaces = spaces.filter(space => {
+            return `${space.windowId}` !== globalWindowId;
+        });
+        spacesRenderer.initialise(5, false);
+        spacesRenderer.renderSpaces(filteredSpaces);
 
-                const allSpaceEls = document.querySelectorAll('.space');
-                Array.prototype.forEach.call(allSpaceEls, el => {
-                    // eslint-disable-next-line no-param-reassign
-                    const existingClickHandler = el.onclick;
-                    el.onclick = e => {
-                        existingClickHandler(e);
-                        handleSelectAction();
-                    };
-                });
-            }
-        );
+        const allSpaceEls = document.querySelectorAll('.space');
+        for (const el of allSpaceEls) {
+            // eslint-disable-next-line no-param-reassign
+            const existingClickHandler = el.onclick;
+            el.onclick = e => {
+                existingClickHandler(e);
+                handleSelectAction();
+            };
+        }
     }
 
     function updateTabDetails() {
@@ -378,6 +370,7 @@ import { utils } from './utils.js';
                         ) {
                             faviconSrc = tab.favIconUrl;
                         } else {
+                            // TODO(codedread): Fix this, it errors.
                             faviconSrc = `chrome://favicon/${tab.url}`;
                         }
                         nodes.activeTabFavicon.setAttribute('src', faviconSrc);
@@ -458,4 +451,3 @@ import { utils } from './utils.js';
             edit: 'true',
         });
     }
-})();

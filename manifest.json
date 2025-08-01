@@ -3,12 +3,13 @@
     "description": "Intuitive tab management",
     "version": "1.1.4",
     "permissions": [
-        "tabs",
-        "storage",
+        "contextMenus",
+        "favicon",
         "history",
-        "unlimitedStorage",
+        "storage",
         "system.display",
-        "contextMenus"
+        "tabs",
+        "unlimitedStorage"
     ],
     "background": {
         "service_worker": "js/background.js",

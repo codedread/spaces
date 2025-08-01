@@ -1,10 +1,10 @@
 // eslint-disable-next-line no-var
-export var spacesRenderer = {
+export const spacesRenderer = {
     nodes: {},
     maxSuggestions: 10,
     oneClickMode: false,
 
-    initialise: (maxSuggestions, oneClickMode) => {
+    initialise(maxSuggestions, oneClickMode) {
         spacesRenderer.maxSuggestions = maxSuggestions;
         spacesRenderer.oneClickMode = oneClickMode;
 
@@ -22,11 +22,11 @@ export var spacesRenderer = {
         spacesRenderer.addEventListeners();
     },
 
-    renderSpaces: spaces => {
-        spaces.forEach(space => {
+    renderSpaces(spaces) {
+        for (const space of spaces) {
             const spaceEl = spacesRenderer.renderSpaceEl(space);
             spacesRenderer.nodes.spacesList.appendChild(spaceEl);
-        });
+        }
         spacesRenderer.selectSpace(spacesRenderer.getFirstSpaceEl(), false);
 
         spacesRenderer.updateSpacesList();
@@ -34,7 +34,7 @@ export var spacesRenderer = {
         spacesRenderer.nodes.moveInput.focus();
     },
 
-    renderSpaceEl: space => {
+    renderSpaceEl(space) {
         const listContainer = document.createElement('div');
         const listTitle = document.createElement('span');
         const listDetail = document.createElement('span');
@@ -70,37 +70,36 @@ export var spacesRenderer = {
         return listContainer;
     },
 
-    handleSpaceClick: e => {
+    handleSpaceClick(e) {
         const el =
             e.target.tagName === 'SPAN' ? e.target.parentElement : e.target;
         spacesRenderer.selectSpace(el, !spacesRenderer.oneClickMode);
     },
 
-    handleSelectionNavigation: direction => {
+    handleSelectionNavigation(direction) {
         const spaceEls = document.querySelectorAll('#spacesList .space');
         let prevEl = false;
         let selectNext = false;
         let selectedSpaceEl;
 
-        Array.prototype.some.call(spaceEls, el => {
-            if (el.style.visibility !== 'visible') return false;
+        for (const el of spaceEls) {
+            if (el.style.visibility !== 'visible') continue;
 
             // locate currently selected space
             if (el.className.indexOf('selected') >= 0) {
                 if (direction === 'up' && prevEl) {
                     selectedSpaceEl = prevEl;
-                    return true;
+                    break;
                 }
                 if (direction === 'down') {
                     selectNext = true;
                 }
             } else if (selectNext) {
                 selectedSpaceEl = el;
-                return true;
+                break;
             }
             prevEl = el;
-            return false;
-        });
+        }
         if (selectedSpaceEl) {
             spacesRenderer.selectSpace(
                 selectedSpaceEl,
@@ -109,20 +108,16 @@ export var spacesRenderer = {
         }
     },
 
-    getFirstSpaceEl: () => {
-        const allSpaceEls = document.querySelectorAll('#spacesList .space');
-        let firstSpaceEl = false;
-        Array.prototype.some.call(allSpaceEls, spaceEl => {
+    getFirstSpaceEl() {
+        for (const spaceEl of document.querySelectorAll('#spacesList .space')) {
             if (spaceEl.style.visibility === 'visible') {
-                firstSpaceEl = spaceEl;
-                return true;
+                return spaceEl;
             }
-            return false;
-        });
-        return firstSpaceEl;
+        }
+        return false;
     },
 
-    selectSpace: (selectedSpaceEl, updateText) => {
+    selectSpace(selectedSpaceEl, updateText) {
         const allSpaceEls = document.querySelectorAll('#spacesList .space');
 
         for (let i = 0; i < allSpaceEls.length; i += 1) {
@@ -150,7 +145,7 @@ export var spacesRenderer = {
         }
     },
 
-    getDefaultSpaceTitle: space => {
+    getDefaultSpaceTitle(space) {
         const count = space.tabs && space.tabs.length;
         if (!count) return '';
         const firstTitle = space.tabs[0].title;
@@ -162,7 +157,7 @@ export var spacesRenderer = {
             : `[${firstTitle}] +${count - 1} more`;
     },
 
-    getTabDetailsString: space => {
+    getTabDetailsString(space) {
         const count = space.tabs && space.tabs.length;
         const open = space.windowId;
 
@@ -172,7 +167,7 @@ export var spacesRenderer = {
         return `(${count} tab${count > 1 ? 's' : ''})`;
     },
 
-    updateSpacesList: () => {
+    updateSpacesList() {
         const query = spacesRenderer.nodes.moveInput.value;
         let match = false;
         let exactMatch = false;
@@ -223,7 +218,7 @@ export var spacesRenderer = {
         spacesRenderer.selectSpace(spacesRenderer.getFirstSpaceEl(), false);
     },
 
-    addEventListeners: () => {
+    addEventListeners() {
         spacesRenderer.nodes.moveInput.parentElement.parentElement.onkeyup = e => {
             // listen for 'up' key
             if (e.keyCode === 38) {
