@@ -94,7 +94,6 @@ import { utils } from './utils.js';
     }
 
     function handleCloseAction() {
-        const { utils } = chrome.extension.getBackgroundPage();
         const opener = utils.getHashVariable('opener', window.location.href);
         if (opener && opener === 'bg') {
             chrome.runtime.sendMessage({
@@ -158,9 +157,7 @@ import { utils } from './utils.js';
     }
 
     async function requestHotkeys() {
-        console.log('requestHotkeys called');
         const commands = await chrome.commands.getAll();
-        console.dir(commands);
         let switchStr;
         let moveStr;
         let spacesStr;
@@ -371,7 +368,7 @@ import { utils } from './utils.js';
                             faviconSrc = tab.favIconUrl;
                         } else {
                             // TODO(codedread): Fix this, it errors.
-                            faviconSrc = `chrome://favicon/${tab.url}`;
+                            // faviconSrc = `chrome://favicon/${tab.url}`;
                         }
                         nodes.activeTabFavicon.setAttribute('src', faviconSrc);
 

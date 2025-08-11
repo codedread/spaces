@@ -158,7 +158,7 @@ import { utils } from './utils.js';
             faviconSrc = tab.favIconUrl;
         } else {
             // TODO(codedread): Fix this, it errors.
-            faviconSrc = `chrome://favicon/${tab.url}`;
+            //faviconSrc = `chrome://favicon/${tab.url}`;
         }
         faviconEl.setAttribute('src', faviconSrc);
 

@@ -535,8 +535,11 @@ export var spacesService = {
         });
         return result.length >= 1 ? result[0] : false;
     },
-    getSessionByName: name => {
+    getSessionByName(name) {
         const result = spacesService.sessions.filter(session => {
+            if (!name) {
+                console.log(`name was undefined`)
+            }
             return (
                 session.name &&
                 session.name.toLowerCase() === name.toLowerCase()
