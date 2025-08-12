@@ -12,7 +12,7 @@
         "unlimitedStorage"
     ],
     "background": {
-        "service_worker": "js/background.js",
+        "service_worker": "js/background/background.js",
         "type": "module"
     },
     "action": {
