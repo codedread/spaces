@@ -22,6 +22,7 @@ export var spacesService = {
 
     // initialise spaces - combine open windows with saved sessions
     async initialiseSpaces() {
+        console.log(`Inside spacesService.initialiseSpaces()`);
         // update version numbers
         const lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
@@ -164,22 +165,24 @@ export var spacesService = {
         );
 
         if (matchingSession) {
-            if (spacesService.debug)
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(
                     `matching session found: ${matchingSession.id}. linking with window: ${curWindow.id}`
                 );
+            }
 
             spacesService.matchSessionToWindow(matchingSession, curWindow);
         }
 
         // if no match found and this window does not already have a temporary session
         if (!matchingSession && !temporarySession) {
-            if (spacesService.debug)
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(
                     `no matching session found. creating temporary session for window: ${curWindow.id}`
                 );
+            }
 
             // create a new temporary session for this window (with no sessionId or name)
             spacesService.createTemporaryUnmatchedSession(curWindow);
@@ -245,11 +248,12 @@ export var spacesService = {
     // -----------------------------------------------------------------------------------------
 
     async handleTabRemoved(tabId, removeInfo, callback) {
-        if (spacesService.debug)
+        if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(
                 `handlingTabRemoved event. windowId: ${removeInfo.windowId}`
             );
+        }
 
         // NOTE: isWindowClosing is true if the window cross was clicked causing the tab to be removed.
         // If the tab cross is clicked and it is the last tab in the window
@@ -284,11 +288,12 @@ export var spacesService = {
     },
 
     handleTabMoved(tabId, moveInfo, callback) {
-        if (spacesService.debug)
+        if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(
                 `handlingTabMoved event. windowId: ${moveInfo.windowId}`
             );
+        }
         spacesService.queueWindowEvent(
             moveInfo.windowId,
             spacesService.eventQueueCount,
@@ -332,16 +337,19 @@ export var spacesService = {
             callback();
         }
 
-        if (spacesService.debug)
+        if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(`handlingWindowRemoved event. windowId: ${windowId}`);
+        }
 
         // add windowId to closedWindowIds. the idea is that once a window is closed it can never be
         // rematched to a new session (hopefully these window ids never get legitimately re-used)
         if (markAsClosed) {
-            if (spacesService.debug)
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(`adding window to closedWindowIds: ${windowId}`);
+            }
+
             spacesService.closedWindowIds[windowId] = true;
             clearTimeout(spacesService.sessionUpdateTimers[windowId]);
         }
@@ -368,9 +376,10 @@ export var spacesService = {
     },
 
     async handleWindowFocussed(windowId) {
-        if (spacesService.debug)
+        if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(`handlingWindowFocussed event. windowId: ${windowId}`);
+        }
 
         if (windowId <= 0) {
             return;
@@ -402,22 +411,24 @@ export var spacesService = {
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        if (spacesService.debug)
+        if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log('------------------------------------------------');
-        if (spacesService.debug)
+
             // eslint-disable-next-line no-console
             console.log(
                 `event: ${eventId}. attempting session update. windowId: ${windowId}`
             );
+        }
 
         // sanity check windowId
         if (!windowId || windowId <= 0) {
-            if (spacesService.debug)
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(
                     `received an event for windowId: ${windowId} which is obviously wrong`
                 );
+            }
             return;
         }
 
@@ -445,11 +456,12 @@ export var spacesService = {
 
             // don't allow event if it pertains to a closed window id
             if (spacesService.closedWindowIds[windowId]) {
-                if (spacesService.debug)
+                if (spacesService.debug) {
                     // eslint-disable-next-line no-console
                     console.log(
                         `ignoring event as it pertains to a closed windowId: ${windowId}`
                     );
+                }
                 return;
             }
 
@@ -457,7 +469,7 @@ export var spacesService = {
             const session = await spacesService.getSessionByWindowId(windowId);
 
             if (session) {
-                if (spacesService.debug)
+                if (spacesService.debug) {
                     // eslint-disable-next-line no-console
                     console.log(
                         `tab statuses: ${curWindow.tabs
@@ -466,6 +478,7 @@ export var spacesService = {
                             })
                             .join('|')}`
                     );
+                }
 
                 // look for tabs recently added/removed from this session and update session history
                 const historyItems = spacesService.historyQueue.filter(
