@@ -2,9 +2,9 @@
 
 import { spacesRenderer } from './spacesRenderer.js';
 
-    function getSelectedSpace() {
-        return document.querySelector('.space.selected');
-    }
+function getSelectedSpace() {
+    return document.querySelector('.space.selected');
+}
 
     function handleSwitchAction(selectedSpaceEl) {
         chrome.runtime.sendMessage({

@@ -2,29 +2,29 @@
 
 import { utils } from './utils.js';
 
-    const UNSAVED_SESSION_NAME = 'Unnamed window';
-    const UNSAVED_SESSION = `<em>${UNSAVED_SESSION_NAME}</em>`;
-    const nodes = {};
-    let globalSelectedSpace;
-    let bannerState;
+const UNSAVED_SESSION_NAME = 'Unnamed window';
+const UNSAVED_SESSION = `<em>${UNSAVED_SESSION_NAME}</em>`;
+const nodes = {};
+let globalSelectedSpace;
+let bannerState;
 
-    // METHODS FOR RENDERING SIDENAV (spaces list)
+// METHODS FOR RENDERING SIDENAV (spaces list)
 
-    function renderSpacesList(spaces) {
-        let spaceEl;
+function renderSpacesList(spaces) {
+    let spaceEl;
 
-        nodes.openSpaces.innerHTML = '';
-        nodes.closedSpaces.innerHTML = '';
+    nodes.openSpaces.innerHTML = '';
+    nodes.closedSpaces.innerHTML = '';
 
-        spaces.forEach(space => {
-            spaceEl = renderSpaceListEl(space);
-            if (space.windowId) {
-                nodes.openSpaces.appendChild(spaceEl);
-            } else {
-                nodes.closedSpaces.appendChild(spaceEl);
-            }
-        });
-    }
+    spaces.forEach(space => {
+        spaceEl = renderSpaceListEl(space);
+        if (space.windowId) {
+            nodes.openSpaces.appendChild(spaceEl);
+        } else {
+            nodes.closedSpaces.appendChild(spaceEl);
+        }
+    });
+}
 
     function renderSpaceListEl(space) {
         let hash;

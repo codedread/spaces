@@ -9,6 +9,9 @@
 import { spacesService } from './spacesService.js';
 
 /** @typedef {import('./common.js').SessionPresence} SessionPresence */
+/** @typedef {import('./common.js').Space} Space */
+
+// TODO(codedread): Eliminate all global variables and use chrome.storage.local. 
 
 // eslint-disable-next-line no-unused-vars, no-var
 let spacesPopupWindowId = false;
@@ -665,6 +668,7 @@ chrome.runtime.onInstalled.addListener(details => {
     }
 
     function requestCurrentSpace(callback) {
+        console.log(`codedread: requestCurrentSpace() called`);
         chrome.windows.getCurrent(window => {
             requestSpaceFromWindowId(window.id, callback);
         });
@@ -677,28 +681,35 @@ chrome.runtime.onInstalled.addListener(details => {
         const session = spacesService.getSessionByWindowId(windowId);
 
         if (session) {
-            callback({
+            console.log(`codedread: requestSpaceFromWindowId() found session: ${session.id} for windowId: ${windowId}`);
+            /** @type {Space} */
+            const space = {
                 sessionId: session.id,
                 windowId: session.windowId,
                 name: session.name,
                 tabs: session.tabs,
                 history: session.history,
-            });
+            };
+            console.dir(space);
+            callback(space);
 
-            // otherwise build a space object out of the actual window
+        // otherwise build a space object out of the actual window
         } else {
+            console.log(`codedread: requestSpaceFromWindowId() found no session for windowId: ${windowId}`);
             chrome.windows.get(windowId, { populate: true }, window => {
                 // if failed to load requested window
                 if (chrome.runtime.lastError) {
                     callback(false);
                 } else {
-                    callback({
+                    /** @type {Space} */
+                    const space = {
                         sessionId: false,
                         windowId: window.id,
                         name: false,
                         tabs: window.tabs,
                         history: false,
-                    });
+                    };
+                    callback(space);
                 }
             });
         }
@@ -1059,16 +1070,17 @@ chrome.runtime.onInstalled.addListener(details => {
             moveTabToWindow(tab, windowId, callback);
         });
     }
-    function moveTabToWindow(tab, windowId, callback) {
-        chrome.tabs.move(tab.id, { windowId, index: -1 });
 
-        // NOTE: this move does not seem to trigger any tab event listeners
-        // so we need to update sessions manually
-        spacesService.queueWindowEvent(tab.windowId);
-        spacesService.queueWindowEvent(windowId);
+function moveTabToWindow(tab, windowId, callback) {
+    chrome.tabs.move(tab.id, { windowId, index: -1 });
 
-        callback(true);
-    }
+    // NOTE: this move does not seem to trigger any tab event listeners
+    // so we need to update sessions manually
+    spacesService.queueWindowEvent(tab.windowId);
+    spacesService.queueWindowEvent(windowId);
+
+    callback(true);
+}
 
 spacesService.initialiseSpaces();
 spacesService.initialiseTabHistory();

@@ -36,7 +36,7 @@ export var utils = {
         );
     },
 
-    getHashVariable: (key, urlStr) => {
+    getHashVariable(key, urlStr) {
         const valuesByKey = {};
         const keyPairRegEx = /^(.+)=(.+)/;
 
@@ -60,7 +60,7 @@ export var utils = {
         return valuesByKey[key] || false;
     },
 
-    getSwitchKeycodes: async (callback) => {
+    async getSwitchKeycodes(callback) {
             const commands = await chrome.commands.getAll();
             // eslint-disable-next-line no-console
             console.dir(commands);

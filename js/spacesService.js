@@ -6,6 +6,8 @@
 
 import { dbService } from './dbService.js';
 
+// TODO(codedread): Eliminate all global variables and use chrome.storage.local. 
+
 // eslint-disable-next-line no-var
 export var spacesService = {
     tabHistoryUrlMap: {},
@@ -20,7 +22,7 @@ export var spacesService = {
     noop: () => {},
 
     // initialise spaces - combine open windows with saved sessions
-    initialiseSpaces: async () => {
+    async initialiseSpaces() {
         // update version numbers
         spacesService.lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
@@ -54,7 +56,7 @@ export var spacesService = {
         });
     },
 
-    resetAllSessionHashes: sessions => {
+    resetAllSessionHashes(sessions) {
         sessions.forEach(session => {
             // eslint-disable-next-line no-param-reassign
             session.sessionHash = spacesService.generateSessionHash(
@@ -65,7 +67,7 @@ export var spacesService = {
     },
 
     // record each tab's id and url so we can add history items when tabs are removed
-    initialiseTabHistory: () => {
+    initialiseTabHistory() {
         chrome.tabs.query({}, tabs => {
             tabs.forEach(tab => {
                 spacesService.tabHistoryUrlMap[tab.id] = tab.url;
@@ -75,7 +77,7 @@ export var spacesService = {
 
     // NOTE: if ever changing this funciton, then we'll need to update all
     // saved sessionHashes so that they match next time, using: resetAllSessionHashes()
-    _cleanUrl: url => {
+    _cleanUrl(url) {
         if (!url) {
             return '';
         }
@@ -116,7 +118,7 @@ export var spacesService = {
         return cleanUrl;
     },
 
-    generateSessionHash: tabs => {
+    generateSessionHash(tabs) {
         const text = tabs.reduce((prevStr, tab) => {
             return prevStr + spacesService._cleanUrl(tab.url);
         }, '');
@@ -133,7 +135,7 @@ export var spacesService = {
         return Math.abs(hash);
     },
 
-    filterInternalWindows: curWindow => {
+    filterInternalWindows(curWindow) {
         // sanity check to make sure window isnt an internal spaces window
         if (
             curWindow.tabs.length === 1 &&
@@ -149,7 +151,7 @@ export var spacesService = {
         return false;
     },
 
-    checkForSessionMatch: curWindow => {
+    checkForSessionMatch(curWindow) {
         if (!curWindow.tabs || curWindow.tabs.length === 0) {
             return;
         }
@@ -186,7 +188,7 @@ export var spacesService = {
         }
     },
 
-    matchSessionToWindow: (session, curWindow) => {
+    matchSessionToWindow(session, curWindow) {
         // remove any other sessions tied to this windowId (temporary sessions)
         for (let i = spacesService.sessions.length - 1; i >= 0; i -= 1) {
             if (spacesService.sessions[i].windowId === curWindow.id) {
@@ -203,7 +205,7 @@ export var spacesService = {
         session.windowId = curWindow.id;
     },
 
-    createTemporaryUnmatchedSession: curWindow => {
+    createTemporaryUnmatchedSession(curWindow) {
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.dir(spacesService.sessions);
@@ -227,7 +229,7 @@ export var spacesService = {
     },
 
     // local storage getters/setters
-    fetchLastVersion: async () => {
+    async fetchLastVersion() {
         let version = await chrome.storage.local.get(['spacesVersion']);
         if (version !== null && version['spacesVersion']) {
             version = JSON.parse(version['spacesVersion']);
@@ -236,7 +238,7 @@ export var spacesService = {
         return 0;
     },
 
-    setLastVersion: newVersion => {
+    setLastVersion(newVersion) {
         chrome.storage.local.set({'spacesVersion': JSON.stringify(newVersion)});
     },
 
@@ -244,7 +246,7 @@ export var spacesService = {
     // (events are received and screened first in background.js)
     // -----------------------------------------------------------------------------------------
 
-    handleTabRemoved: (tabId, removeInfo, callback) => {
+    handleTabRemoved(tabId, removeInfo, callback) {
         if (spacesService.debug)
             // eslint-disable-next-line no-console
             console.log(
@@ -282,7 +284,8 @@ export var spacesService = {
             delete spacesService.tabHistoryUrlMap[tabId];
         }
     },
-    handleTabMoved: (tabId, moveInfo, callback) => {
+
+    handleTabMoved(tabId, moveInfo, callback) {
         if (spacesService.debug)
             // eslint-disable-next-line no-console
             console.log(
@@ -294,14 +297,16 @@ export var spacesService = {
             callback
         );
     },
-    handleTabUpdated: (tab, changeInfo, callback) => {
+
+    handleTabUpdated(tab, changeInfo, callback) {
         // NOTE: only queue event when tab has completed loading (title property exists at this point)
         if (tab.status === 'complete') {
-            if (spacesService.debug)
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(
                     `handlingTabUpdated event. windowId: ${tab.windowId}`
                 );
+            }
 
             // update tab history in case the tab url has changed
             spacesService.tabHistoryUrlMap[tab.id] = tab.url;
@@ -322,7 +327,8 @@ export var spacesService = {
             });
         }
     },
-    handleWindowRemoved: (windowId, markAsClosed, callback) => {
+
+    handleWindowRemoved(windowId, markAsClosed, callback) {
         // ignore subsequent windowRemoved events for the same windowId (each closing tab will try to call this)
         if (spacesService.closedWindowIds[windowId]) {
             callback();
@@ -362,7 +368,8 @@ export var spacesService = {
 
         callback();
     },
-    handleWindowFocussed: windowId => {
+
+    handleWindowFocussed(windowId) {
         if (spacesService.debug)
             // eslint-disable-next-line no-console
             console.log(`handlingWindowFocussed event. windowId: ${windowId}`);
@@ -381,7 +388,7 @@ export var spacesService = {
     // Set a timeout so that multiple tabs all opened at once (like when restoring a session)
     // only trigger this function once (as per the timeout set by the last tab event)
     // This will cause multiple triggers if time between tab openings is longer than 1 sec
-    queueWindowEvent: (windowId, eventId, callback) => {
+    queueWindowEvent(windowId, eventId, callback) {
         clearTimeout(spacesService.sessionUpdateTimers[windowId]);
 
         spacesService.eventQueueCount += 1;
@@ -392,7 +399,7 @@ export var spacesService = {
     },
 
     // careful here as this function gets called A LOT
-    handleWindowEvent: (windowId, eventId, callback) => {
+    handleWindowEvent(windowId, eventId, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
@@ -514,19 +521,21 @@ export var spacesService = {
 
     // PUBLIC FUNCTIONS
 
-    getSessionBySessionId: sessionId => {
+    getSessionBySessionId(sessionId) {
         const result = spacesService.sessions.filter(session => {
             return session.id === sessionId;
         });
         return result.length === 1 ? result[0] : false;
     },
-    getSessionByWindowId: windowId => {
+
+    getSessionByWindowId(windowId) {
         const result = spacesService.sessions.filter(session => {
             return session.windowId === windowId;
         });
         return result.length === 1 ? result[0] : false;
     },
-    getSessionBySessionHash: (hash, closedOnly) => {
+
+    getSessionBySessionHash(hash, closedOnly) {
         const result = spacesService.sessions.filter(session => {
             if (closedOnly) {
                 return session.sessionHash === hash && !session.windowId;
@@ -535,6 +544,7 @@ export var spacesService = {
         });
         return result.length >= 1 ? result[0] : false;
     },
+
     getSessionByName(name) {
         const result = spacesService.sessions.filter(session => {
             if (!name) {
@@ -547,11 +557,12 @@ export var spacesService = {
         });
         return result.length >= 1 ? result[0] : false;
     },
-    getAllSessions: () => {
+
+    getAllSessions() {
         return spacesService.sessions;
     },
 
-    addUrlToSessionHistory: (session, newUrl) => {
+    addUrlToSessionHistory(session, newUrl) {
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(`adding tab to history: ${newUrl}`);
@@ -596,7 +607,7 @@ export var spacesService = {
         return session;
     },
 
-    removeUrlFromSessionHistory: (session, newUrl) => {
+    removeUrlFromSessionHistory(session, newUrl) {
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(`removing tab from history: ${newUrl}`);
@@ -621,7 +632,7 @@ export var spacesService = {
 
     // Database actions
 
-    updateSessionTabs: (sessionId, tabs, callback) => {
+    updateSessionTabs(sessionId, tabs, callback) {
         const session = spacesService.getSessionBySessionId(sessionId);
 
         // eslint-disable-next-line no-param-reassign
@@ -635,7 +646,7 @@ export var spacesService = {
         spacesService.saveExistingSession(session.id, callback);
     },
 
-    updateSessionName: (sessionId, sessionName, callback) => {
+    updateSessionName(sessionId, sessionName, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
@@ -646,7 +657,7 @@ export var spacesService = {
         spacesService.saveExistingSession(session.id, callback);
     },
 
-    saveExistingSession: (sessionId, callback) => {
+    saveExistingSession(sessionId, callback) {
         const session = spacesService.getSessionBySessionId(sessionId);
 
         // eslint-disable-next-line no-param-reassign
@@ -656,7 +667,7 @@ export var spacesService = {
         dbService.updateSession(session, callback);
     },
 
-    saveNewSession: (sessionName, tabs, windowId, callback) => {
+    saveNewSession(sessionName, tabs, windowId, callback) {
         if (!tabs) {
             callback();
             return;
@@ -698,7 +709,7 @@ export var spacesService = {
         });
     },
 
-    deleteSession: (sessionId, callback) => {
+    deleteSession(sessionId, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
