@@ -16,22 +16,20 @@ export var spacesService = {
     sessionUpdateTimers: {},
     historyQueue: [],
     eventQueueCount: 0,
-    lastVersion: 0,
-    debug: false,
+    debug: true,
 
     noop: () => {},
 
     // initialise spaces - combine open windows with saved sessions
     async initialiseSpaces() {
         // update version numbers
-        spacesService.lastVersion = await spacesService.fetchLastVersion();
+        const lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
 
         dbService.fetchAllSessions(sessions => {
             if (
                 chrome.runtime.getManifest().version === '0.18' &&
-                chrome.runtime.getManifest().version !==
-                    spacesService.lastVersion
+                chrome.runtime.getManifest().version !== lastVersion
             ) {
                 spacesService.resetAllSessionHashes(sessions);
             }
@@ -69,7 +67,7 @@ export var spacesService = {
     // record each tab's id and url so we can add history items when tabs are removed
     initialiseTabHistory() {
         chrome.tabs.query({}, tabs => {
-            tabs.forEach(tab => {
+            tabs.forEach(async tab => {
                 spacesService.tabHistoryUrlMap[tab.id] = tab.url;
             });
         });
@@ -151,16 +149,16 @@ export var spacesService = {
         return false;
     },
 
-    checkForSessionMatch(curWindow) {
+    async checkForSessionMatch(curWindow) {
         if (!curWindow.tabs || curWindow.tabs.length === 0) {
             return;
         }
 
         const sessionHash = spacesService.generateSessionHash(curWindow.tabs);
-        const temporarySession = spacesService.getSessionByWindowId(
+        const temporarySession = await spacesService.getSessionByWindowId(
             curWindow.id
         );
-        const matchingSession = spacesService.getSessionBySessionHash(
+        const matchingSession = await spacesService.getSessionBySessionHash(
             sessionHash,
             true
         );
@@ -188,7 +186,7 @@ export var spacesService = {
         }
     },
 
-    matchSessionToWindow(session, curWindow) {
+    async matchSessionToWindow(session, curWindow) {
         // remove any other sessions tied to this windowId (temporary sessions)
         for (let i = spacesService.sessions.length - 1; i >= 0; i -= 1) {
             if (spacesService.sessions[i].windowId === curWindow.id) {
@@ -205,14 +203,14 @@ export var spacesService = {
         session.windowId = curWindow.id;
     },
 
-    createTemporaryUnmatchedSession(curWindow) {
+    async createTemporaryUnmatchedSession(curWindow) {
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.dir(spacesService.sessions);
             // eslint-disable-next-line no-console
             console.dir(curWindow);
             // eslint-disable-next-line no-alert
-            alert('couldnt match window. creating temporary session');
+            // alert('couldnt match window. creating temporary session');
         }
 
         const sessionHash = spacesService.generateSessionHash(curWindow.tabs);
@@ -246,7 +244,7 @@ export var spacesService = {
     // (events are received and screened first in background.js)
     // -----------------------------------------------------------------------------------------
 
-    handleTabRemoved(tabId, removeInfo, callback) {
+    async handleTabRemoved(tabId, removeInfo, callback) {
         if (spacesService.debug)
             // eslint-disable-next-line no-console
             console.log(
@@ -298,7 +296,7 @@ export var spacesService = {
         );
     },
 
-    handleTabUpdated(tab, changeInfo, callback) {
+    async handleTabUpdated(tab, changeInfo, callback) {
         // NOTE: only queue event when tab has completed loading (title property exists at this point)
         if (tab.status === 'complete') {
             if (spacesService.debug) {
@@ -328,7 +326,7 @@ export var spacesService = {
         }
     },
 
-    handleWindowRemoved(windowId, markAsClosed, callback) {
+    async handleWindowRemoved(windowId, markAsClosed, callback) {
         // ignore subsequent windowRemoved events for the same windowId (each closing tab will try to call this)
         if (spacesService.closedWindowIds[windowId]) {
             callback();
@@ -348,7 +346,7 @@ export var spacesService = {
             clearTimeout(spacesService.sessionUpdateTimers[windowId]);
         }
 
-        const session = spacesService.getSessionByWindowId(windowId);
+        const session = await spacesService.getSessionByWindowId(windowId);
         if (session) {
             // if this is a saved session then just remove the windowId reference
             if (session.id) {
@@ -369,7 +367,7 @@ export var spacesService = {
         callback();
     },
 
-    handleWindowFocussed(windowId) {
+    async handleWindowFocussed(windowId) {
         if (spacesService.debug)
             // eslint-disable-next-line no-console
             console.log(`handlingWindowFocussed event. windowId: ${windowId}`);
@@ -378,7 +376,7 @@ export var spacesService = {
             return;
         }
 
-        const session = spacesService.getSessionByWindowId(windowId);
+        const session = await spacesService.getSessionByWindowId(windowId);
         if (session) {
             session.lastAccess = new Date();
         }
@@ -423,7 +421,7 @@ export var spacesService = {
             return;
         }
 
-        chrome.windows.get(windowId, { populate: true }, curWindow => {
+        chrome.windows.get(windowId, { populate: true }, async curWindow => {
             if (chrome.runtime.lastError) {
                 // eslint-disable-next-line no-console
                 console.log(
@@ -456,7 +454,7 @@ export var spacesService = {
             }
 
             // if window is associated with an open session then update session
-            const session = spacesService.getSessionByWindowId(windowId);
+            const session = await spacesService.getSessionByWindowId(windowId);
 
             if (session) {
                 if (spacesService.debug)
@@ -521,21 +519,21 @@ export var spacesService = {
 
     // PUBLIC FUNCTIONS
 
-    getSessionBySessionId(sessionId) {
+    async getSessionBySessionId(sessionId) {
         const result = spacesService.sessions.filter(session => {
             return session.id === sessionId;
         });
         return result.length === 1 ? result[0] : false;
     },
 
-    getSessionByWindowId(windowId) {
+    async getSessionByWindowId(windowId) {
         const result = spacesService.sessions.filter(session => {
             return session.windowId === windowId;
         });
         return result.length === 1 ? result[0] : false;
     },
 
-    getSessionBySessionHash(hash, closedOnly) {
+    async getSessionBySessionHash(hash, closedOnly) {
         const result = spacesService.sessions.filter(session => {
             if (closedOnly) {
                 return session.sessionHash === hash && !session.windowId;
@@ -545,7 +543,7 @@ export var spacesService = {
         return result.length >= 1 ? result[0] : false;
     },
 
-    getSessionByName(name) {
+    async getSessionByName(name) {
         const result = spacesService.sessions.filter(session => {
             if (!name) {
                 console.log(`name was undefined`)
@@ -558,7 +556,7 @@ export var spacesService = {
         return result.length >= 1 ? result[0] : false;
     },
 
-    getAllSessions() {
+    async getAllSessions() {
         return spacesService.sessions;
     },
 
@@ -632,8 +630,8 @@ export var spacesService = {
 
     // Database actions
 
-    updateSessionTabs(sessionId, tabs, callback) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+    async updateSessionTabs(sessionId, tabs, callback) {
+        const session = await spacesService.getSessionBySessionId(sessionId);
 
         // eslint-disable-next-line no-param-reassign
         callback =
@@ -646,19 +644,19 @@ export var spacesService = {
         spacesService.saveExistingSession(session.id, callback);
     },
 
-    updateSessionName(sessionId, sessionName, callback) {
+    async updateSessionName(sessionId, sessionName, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        const session = spacesService.getSessionBySessionId(sessionId);
+        const session = await spacesService.getSessionBySessionId(sessionId);
         session.name = sessionName;
 
         spacesService.saveExistingSession(session.id, callback);
     },
 
-    saveExistingSession(sessionId, callback) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+    async saveExistingSession(sessionId, callback) {
+        const session = await spacesService.getSessionBySessionId(sessionId);
 
         // eslint-disable-next-line no-param-reassign
         callback =
@@ -667,7 +665,7 @@ export var spacesService = {
         dbService.updateSession(session, callback);
     },
 
-    saveNewSession(sessionName, tabs, windowId, callback) {
+    async saveNewSession(sessionName, tabs, windowId, callback) {
         if (!tabs) {
             callback();
             return;
@@ -682,7 +680,7 @@ export var spacesService = {
 
         // check for a temporary session with this windowId
         if (windowId) {
-            session = spacesService.getSessionByWindowId(windowId);
+            session = await spacesService.getSessionByWindowId(windowId);
         }
 
         // if no temporary session found with this windowId, then create one
@@ -714,7 +712,7 @@ export var spacesService = {
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        dbService.removeSession(sessionId, () => {
+        dbService.removeSession(sessionId, async () => {
             // remove session from cached array
             spacesService.sessions.some((session, index) => {
                 if (session.id === sessionId) {

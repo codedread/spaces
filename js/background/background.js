@@ -44,7 +44,7 @@ chrome.runtime.onInstalled.addListener(details => {
     });
 });
 
-    // LISTENERS
+// LISTENERS
 
     // add listeners for session monitoring
     chrome.tabs.onCreated.addListener(tab => {
@@ -518,7 +518,7 @@ chrome.runtime.onInstalled.addListener(details => {
             return '';
         }
 
-        const session = spacesService.getSessionByWindowId(activeTab.windowId);
+        const session = await spacesService.getSessionByWindowId(activeTab.windowId);
 
         const name = session ? session.name : '';
 
@@ -654,14 +654,14 @@ chrome.runtime.onInstalled.addListener(details => {
         return false;
     }
 
-    /**
-     * @param {string} sessionName
-     * @returns {SessionPresence}
-     */
-    function requestSessionPresence(sessionName) {
-        const session = spacesService.getSessionByName(sessionName);
-        return { exists: !!session, isOpen: !!session && !!session.windowId };
-    }
+/**
+ * @param {string} sessionName
+ * @returns {SessionPresence}
+ */
+async function requestSessionPresence(sessionName) {
+    const session = await spacesService.getSessionByName(sessionName);
+    return { exists: !!session, isOpen: !!session && !!session.windowId };
+}
 
     function requestTabDetail(tabId, callback) {
         chrome.tabs.get(tabId, callback);
@@ -676,9 +676,9 @@ chrome.runtime.onInstalled.addListener(details => {
 
     // returns a 'space' object which is essentially the same as a session object
     // except that includes space.sessionId (session.id) and space.windowId
-    function requestSpaceFromWindowId(windowId, callback) {
+    async function requestSpaceFromWindowId(windowId, callback) {
         // first check for an existing session matching this windowId
-        const session = spacesService.getSessionByWindowId(windowId);
+        const session = await spacesService.getSessionByWindowId(windowId);
 
         if (session) {
             console.log(`codedread: requestSpaceFromWindowId() found session: ${session.id} for windowId: ${windowId}`);
@@ -715,8 +715,8 @@ chrome.runtime.onInstalled.addListener(details => {
         }
     }
 
-    function requestSpaceFromSessionId(sessionId, callback) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+    async function requestSpaceFromSessionId(sessionId, callback) {
+        const session = await spacesService.getSessionBySessionId(sessionId);
 
         callback({
             sessionId: session.id,
@@ -727,8 +727,8 @@ chrome.runtime.onInstalled.addListener(details => {
         });
     }
 
-    function requestAllSpaces(callback) {
-        const sessions = spacesService.getAllSessions();
+    async function requestAllSpaces(callback) {
+        const sessions = await spacesService.getAllSessions();
         const allSpaces = sessions
             .map(session => {
                 return { sessionId: session.id, ...session };
@@ -762,7 +762,7 @@ chrome.runtime.onInstalled.addListener(details => {
     }
 
      async function handleLoadSession(sessionId, tabUrl) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+        const session = await spacesService.getSessionBySessionId(sessionId);
 
         // if space is already open, then give it focus
         if (session.windowId) {
@@ -860,8 +860,8 @@ chrome.runtime.onInstalled.addListener(details => {
     }
 
     function handleSaveNewSession(windowId, sessionName, deleteOld, callback) {
-        chrome.windows.get(windowId, { populate: true }, curWindow => {
-            const existingSession = spacesService.getSessionByName(sessionName);
+        chrome.windows.get(windowId, { populate: true }, async curWindow => {
+            const existingSession = await spacesService.getSessionByName(sessionName);
 
             // if session with same name already exist, then prompt to override the existing session
             if (existingSession) {
@@ -885,10 +885,9 @@ chrome.runtime.onInstalled.addListener(details => {
         });
     }
 
-    function handleRestoreFromBackup(space, deleteOld, callback) {
-
+    async function handleRestoreFromBackup(space, deleteOld, callback) {
         const existingSession = space.name
-            ? spacesService.getSessionByName(space.name)
+            ? await spacesService.getSessionByName(space.name)
             : false;
 
         // if session with same name already exist, then prompt to override the existing session
@@ -913,11 +912,11 @@ chrome.runtime.onInstalled.addListener(details => {
         );
     }
 
-    function handleImportNewSession(urlList, callback) {
+    async function handleImportNewSession(urlList, callback) {
         let tempName = 'Imported space: ';
         let count = 1;
 
-        while (spacesService.getSessionByName(tempName + count)) {
+        while (await spacesService.getSessionByName(tempName + count)) {
             count += 1;
         }
 
@@ -931,9 +930,9 @@ chrome.runtime.onInstalled.addListener(details => {
         spacesService.saveNewSession(tempName, tabList, false, callback);
     }
 
-    function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
+    async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
         // check to make sure session name doesn't already exist
-        const existingSession = spacesService.getSessionByName(sessionName);
+        const existingSession = await spacesService.getSessionByName(sessionName);
 
         // if session with same name already exist, then prompt to override the existing session
         if (existingSession) {
@@ -951,8 +950,8 @@ chrome.runtime.onInstalled.addListener(details => {
         spacesService.updateSessionName(sessionId, sessionName, callback);
     }
 
-    function handleDeleteSession(sessionId, callback) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+    async function handleDeleteSession(sessionId, callback) {
+        const session = await spacesService.getSessionBySessionId(sessionId);
         if (!session) {
             console.error(`handleDeleteSession: No session found with id ${sessionId}`);
             callback(false);
@@ -962,8 +961,8 @@ chrome.runtime.onInstalled.addListener(details => {
         spacesService.deleteSession(sessionId, callback);
     }
 
-    function handleAddLinkToNewSession(url, sessionName, callback) {
-        const session = spacesService.getSessionByName(sessionName);
+    async function handleAddLinkToNewSession(url, sessionName, callback) {
+        const session = await spacesService.getSessionByName(sessionName);
         const newTabs = [{ url }];
 
         // if we found a session matching this name then return as an error as we are
@@ -978,8 +977,8 @@ chrome.runtime.onInstalled.addListener(details => {
     }
 
     function handleMoveTabToNewSession(tabId, sessionName, callback) {
-        requestTabDetail(tabId, tab => {
-            const session = spacesService.getSessionByName(sessionName);
+        requestTabDetail(tabId, async tab => {
+            const session = await spacesService.getSessionByName(sessionName);
 
             // if we found a session matching this name then return as an error as we are
             // supposed to be creating a new session with this name
@@ -1002,8 +1001,8 @@ chrome.runtime.onInstalled.addListener(details => {
         });
     }
 
-    function handleAddLinkToSession(url, sessionId, callback) {
-        const session = spacesService.getSessionBySessionId(sessionId);
+    async function handleAddLinkToSession(url, sessionId, callback) {
+        const session = await spacesService.getSessionBySessionId(sessionId);
         const newTabs = [{ url }];
 
         // if we have not found a session matching this name then return as an error as we are
@@ -1035,8 +1034,8 @@ chrome.runtime.onInstalled.addListener(details => {
     }
 
     function handleMoveTabToSession(tabId, sessionId, callback) {
-        requestTabDetail(tabId, tab => {
-            const session = spacesService.getSessionBySessionId(sessionId);
+        requestTabDetail(tabId, async tab => {
+            const session = await spacesService.getSessionBySessionId(sessionId);
             const newTabs = [tab];
 
             // if we have not found a session matching this name then return as an error as we are
@@ -1082,5 +1081,6 @@ function moveTabToWindow(tab, windowId, callback) {
     callback(true);
 }
 
+console.log(`Initializing spacesService...`);
 spacesService.initialiseSpaces();
 spacesService.initialiseTabHistory();
