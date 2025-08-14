@@ -64,15 +64,14 @@ export var dbService = {
 
     /**
      * Fetches a session by ID from the database.
-     * @param {string} id - The session ID to fetch
+     * @param {number} id - The session ID to fetch
      * @returns {Promise<Object|null>} Promise that resolves to session object or null if not found
      */
     _fetchSessionById(id) {
-        const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         return dbService.getDb().then(s => {
             return s
                 .query(dbService.DB_SESSIONS, 'id')
-                .only(_id)
+                .only(id)
                 .distinct()
                 .desc()
                 .execute()
@@ -97,46 +96,43 @@ export var dbService = {
     },
 
     /**
-     * Fetches a session by ID and calls callback with result.
-     * @param {string} id - The session ID to fetch
-     * @param {Function} callback - Callback function that receives session object or null
+     * Fetches a session by ID.
+     * @param {string|number} id - The session ID to fetch
+     * @returns {Promise<Object|null>} Promise that resolves to session object or null if not found
      */
-    fetchSessionById(id, callback) {
+    async fetchSessionById(id) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-        dbService._fetchSessionById(_id).then(session => {
-            _callback(session);
-        });
+        try {
+            const session = await dbService._fetchSessionById(_id);
+            return session;
+        } catch (error) {
+            console.error('Error fetching session by ID:', error);
+            return null;
+        }
     },
 
     /**
-     * Fetches all session names and calls callback with results.
-     * @param {Function} callback - Callback function that receives array of session names
+     * Fetches all session names.
+     * @returns {Promise<Array<string>>} Promise that resolves to array of session names
      */
-    fetchSessionNames(callback) {
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-
-        dbService._fetchAllSessions().then(sessions => {
-            _callback(
-                sessions.map(session => {
-                    return session.name;
-                })
-            );
-        });
+    async fetchSessionNames() {
+        try {
+            const sessions = await dbService._fetchAllSessions();
+            return sessions.map(session => session.name);
+        } catch (error) {
+            console.error('Error fetching session names:', error);
+            return [];
+        }
     },
 
     /**
-     * Fetches a session by name and calls callback with result.
+     * Fetches a session by name.
      * @param {string} sessionName - The session name to search for
-     * @param {Function} callback - Callback function that receives session object or false if not found
+     * @returns {Promise<Object|false>} Promise that resolves to session object or false if not found
      */
-    fetchSessionByName(sessionName, callback) {
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-
-        dbService._fetchAllSessions().then(sessions => {
+    async fetchSessionByName(sessionName) {
+        try {
+            const sessions = await dbService._fetchAllSessions();
             let matchIndex;
             const matchFound = sessions.some((session, index) => {
                 if (session.name.toLowerCase() === sessionName.toLowerCase()) {
@@ -146,12 +142,11 @@ export var dbService = {
                 return false;
             });
 
-            if (matchFound) {
-                _callback(sessions[matchIndex]);
-            } else {
-                _callback(false);
-            }
-        });
+            return matchFound ? sessions[matchIndex] : false;
+        } catch (error) {
+            console.error('Error fetching session by name:', error);
+            return false;
+        }
     },
 
     /**
@@ -196,7 +191,7 @@ export var dbService = {
 
     /**
      * Removes a session from the database.
-     * @param {string} id - The session ID to remove
+     * @param {string|number} id - The session ID to remove
      * @returns {Promise<boolean>} Promise that resolves to true if successful, false if failed
      */
     async removeSession(id) {
