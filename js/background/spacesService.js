@@ -34,7 +34,7 @@ export var spacesService = {
                 chrome.runtime.getManifest().version === '0.18' &&
                 chrome.runtime.getManifest().version !== lastVersion
             ) {
-                spacesService.resetAllSessionHashes(sessions);
+                await spacesService.resetAllSessionHashes(sessions);
             }
 
             chrome.windows.getAll({ populate: true }, windows => {
@@ -59,14 +59,14 @@ export var spacesService = {
         }
     },
 
-    resetAllSessionHashes(sessions) {
-        sessions.forEach(session => {
+    async resetAllSessionHashes(sessions) {
+        for (const session of sessions) {
             // eslint-disable-next-line no-param-reassign
             session.sessionHash = spacesService.generateSessionHash(
                 session.tabs
             );
-            dbService.updateSession(session);
-        });
+            await dbService.updateSession(session);
+        }
     },
 
     // record each tab's id and url so we can add history items when tabs are removed
@@ -679,7 +679,13 @@ export var spacesService = {
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        dbService.updateSession(session, callback);
+        try {
+            const updatedSession = await dbService.updateSession(session);
+            callback(updatedSession);
+        } catch (error) {
+            console.error('Error saving existing session:', error);
+            callback(null);
+        }
     },
 
     async saveNewSession(sessionName, tabs, windowId, callback) {

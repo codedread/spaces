@@ -181,28 +181,22 @@ export var dbService = {
     /**
      * Updates an existing session in the database.
      * @param {Object} session - The session object to update (must have valid id)
-     * @param {Function} callback - Callback function that receives the updated session or false if failed
+     * @returns {Promise<Object|null>} Promise that resolves to updated session or null if failed
      */
-    updateSession(session, callback) {
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-
+    async updateSession(session) {
         // ensure session id is set
         if (!session.id) {
-            _callback(false);
-            return;
+            return null;
         }
 
-        dbService
-            .getDb()
-            .then(s => {
-                return s.update(dbService.DB_SESSIONS, session);
-            })
-            .then(result => {
-                if (result.length > 0) {
-                    _callback(result[0]);
-                }
-            });
+        try {
+            const s = await dbService.getDb();
+            const result = await s.update(dbService.DB_SESSIONS, session);
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            console.error('Error updating session:', error);
+            return null;
+        }
     },
 
     /**
