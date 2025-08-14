@@ -37,15 +37,18 @@ export var spacesService = {
                 await spacesService.resetAllSessionHashes(sessions);
             }
 
-            chrome.windows.getAll({ populate: true }, windows => {
+            chrome.windows.getAll({ populate: true }, async windows => {
                 // populate session map from database
                 spacesService.sessions = sessions;
 
-                // clear any previously saved windowIds
-                spacesService.sessions.forEach(session => {
-                    // eslint-disable-next-line no-param-reassign
-                    session.windowId = false;
-                });
+                // clear any previously saved windowIds both in memory and database
+                for (const session of spacesService.sessions) {
+                    if (session.windowId) {
+                        session.windowId = false;
+                        // Persist the cleared windowId to database
+                        await dbService.updateSession(session);
+                    }
+                }
 
                 // then try to match current open windows with saved sessions
                 windows.forEach(curWindow => {
@@ -160,13 +163,22 @@ export var spacesService = {
         }
 
         const sessionHash = spacesService.generateSessionHash(curWindow.tabs);
-        const temporarySession = await spacesService.getSessionByWindowId(
+        const temporarySession = await dbService.fetchSessionByWindowId(
             curWindow.id
         );
-        const matchingSession = await spacesService.getSessionBySessionHash(
-            sessionHash,
-            true
-        );
+        
+        // Find matching session by hash (closedOnly = true)
+        let matchingSession = false;
+        try {
+            const sessions = await dbService.fetchAllSessions();
+            const matchedSession = sessions.find(session => {
+                return session.sessionHash === sessionHash && !session.windowId;
+            });
+            matchingSession = matchedSession || false;
+        } catch (error) {
+            console.error('Error fetching session by hash:', error);
+            matchingSession = false;
+        }
 
         if (matchingSession) {
             if (spacesService.debug) {
@@ -199,6 +211,8 @@ export var spacesService = {
             if (spacesService.sessions[i].windowId === curWindow.id) {
                 if (spacesService.sessions[i].id) {
                     spacesService.sessions[i].windowId = false;
+                    // Persist the cleared windowId to database
+                    await dbService.updateSession(spacesService.sessions[i]);
                 } else {
                     spacesService.sessions.splice(i, 1);
                 }
@@ -208,6 +222,11 @@ export var spacesService = {
         // assign windowId to newly matched session
         // eslint-disable-next-line no-param-reassign
         session.windowId = curWindow.id;
+        
+        // Persist the new windowId association to database
+        if (session.id) {
+            await dbService.updateSession(session);
+        }
     },
 
     async createTemporaryUnmatchedSession(curWindow) {
@@ -358,11 +377,13 @@ export var spacesService = {
             clearTimeout(spacesService.sessionUpdateTimers[windowId]);
         }
 
-        const session = await spacesService.getSessionByWindowId(windowId);
+        const session = await dbService.fetchSessionByWindowId(windowId);
         if (session) {
             // if this is a saved session then just remove the windowId reference
             if (session.id) {
                 session.windowId = false;
+                // Persist the cleared windowId to database
+                await dbService.updateSession(session);
 
                 // else if it is temporary session then remove the session from the cache
             } else {
@@ -389,7 +410,7 @@ export var spacesService = {
             return;
         }
 
-        const session = await spacesService.getSessionByWindowId(windowId);
+        const session = await dbService.fetchSessionByWindowId(windowId);
         if (session) {
             session.lastAccess = new Date();
         }
@@ -470,7 +491,7 @@ export var spacesService = {
             }
 
             // if window is associated with an open session then update session
-            const session = await spacesService.getSessionByWindowId(windowId);
+            const session = await dbService.fetchSessionByWindowId(windowId);
 
             if (session) {
                 if (spacesService.debug) {
@@ -535,47 +556,6 @@ export var spacesService = {
     },
 
     // PUBLIC FUNCTIONS
-
-    async getSessionBySessionId(sessionId) {
-        const result = spacesService.sessions.filter(session => {
-            return session.id === sessionId;
-        });
-        return result.length === 1 ? result[0] : false;
-    },
-
-    async getSessionByWindowId(windowId) {
-        const result = spacesService.sessions.filter(session => {
-            return session.windowId === windowId;
-        });
-        return result.length === 1 ? result[0] : false;
-    },
-
-    async getSessionBySessionHash(hash, closedOnly) {
-        const result = spacesService.sessions.filter(session => {
-            if (closedOnly) {
-                return session.sessionHash === hash && !session.windowId;
-            }
-            return session.sessionHash === hash;
-        });
-        return result.length >= 1 ? result[0] : false;
-    },
-
-    async getSessionByName(name) {
-        const result = spacesService.sessions.filter(session => {
-            if (!name) {
-                console.log(`name was undefined`)
-            }
-            return (
-                session.name &&
-                session.name.toLowerCase() === name.toLowerCase()
-            );
-        });
-        return result.length >= 1 ? result[0] : false;
-    },
-
-    async getAllSessions() {
-        return spacesService.sessions;
-    },
 
     addUrlToSessionHistory(session, newUrl) {
         if (spacesService.debug) {
@@ -648,7 +628,7 @@ export var spacesService = {
     // Database actions
 
     async updateSessionTabs(sessionId, tabs, callback) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
 
         // eslint-disable-next-line no-param-reassign
         callback =
@@ -666,14 +646,14 @@ export var spacesService = {
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
         session.name = sessionName;
 
         spacesService.saveExistingSession(session.id, callback);
     },
 
     async saveExistingSession(sessionId, callback) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
 
         // eslint-disable-next-line no-param-reassign
         callback =
@@ -703,7 +683,7 @@ export var spacesService = {
 
         // check for a temporary session with this windowId
         if (windowId) {
-            session = await spacesService.getSessionByWindowId(windowId);
+            session = await dbService.fetchSessionByWindowId(windowId);
         }
 
         // if no temporary session found with this windowId, then create one

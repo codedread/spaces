@@ -6,6 +6,7 @@
  * Copyright (C) 2015 Dean Oemcke
  */
 
+import { dbService } from './dbService.js';
 import { spacesService } from './spacesService.js';
 
 /** @typedef {import('./common.js').SessionPresence} SessionPresence */
@@ -518,7 +519,7 @@ chrome.runtime.onInstalled.addListener(details => {
             return '';
         }
 
-        const session = await spacesService.getSessionByWindowId(activeTab.windowId);
+        const session = await dbService.fetchSessionByWindowId(activeTab.windowId);
 
         const name = session ? session.name : '';
 
@@ -659,7 +660,7 @@ chrome.runtime.onInstalled.addListener(details => {
  * @returns {SessionPresence}
  */
 async function requestSessionPresence(sessionName) {
-    const session = await spacesService.getSessionByName(sessionName);
+    const session = await dbService.fetchSessionByName(sessionName);
     return { exists: !!session, isOpen: !!session && !!session.windowId };
 }
 
@@ -678,7 +679,7 @@ async function requestSessionPresence(sessionName) {
     // except that includes space.sessionId (session.id) and space.windowId
     async function requestSpaceFromWindowId(windowId, callback) {
         // first check for an existing session matching this windowId
-        const session = await spacesService.getSessionByWindowId(windowId);
+        const session = await dbService.fetchSessionByWindowId(windowId);
 
         if (session) {
             console.log(`codedread: requestSpaceFromWindowId() found session: ${session.id} for windowId: ${windowId}`);
@@ -716,7 +717,7 @@ async function requestSessionPresence(sessionName) {
     }
 
     async function requestSpaceFromSessionId(sessionId, callback) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
 
         callback({
             sessionId: session.id,
@@ -728,7 +729,7 @@ async function requestSessionPresence(sessionName) {
     }
 
     async function requestAllSpaces(callback) {
-        const sessions = await spacesService.getAllSessions();
+        const sessions = await dbService.fetchAllSessions();
         const allSpaces = sessions
             .map(session => {
                 return { sessionId: session.id, ...session };
@@ -762,7 +763,7 @@ async function requestSessionPresence(sessionName) {
     }
 
      async function handleLoadSession(sessionId, tabUrl) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
 
         // if space is already open, then give it focus
         if (session.windowId) {
@@ -861,7 +862,7 @@ async function requestSessionPresence(sessionName) {
 
     function handleSaveNewSession(windowId, sessionName, deleteOld, callback) {
         chrome.windows.get(windowId, { populate: true }, async curWindow => {
-            const existingSession = await spacesService.getSessionByName(sessionName);
+            const existingSession = await dbService.fetchSessionByName(sessionName);
 
             // if session with same name already exist, then prompt to override the existing session
             if (existingSession) {
@@ -887,7 +888,7 @@ async function requestSessionPresence(sessionName) {
 
     async function handleRestoreFromBackup(space, deleteOld, callback) {
         const existingSession = space.name
-            ? await spacesService.getSessionByName(space.name)
+            ? await dbService.fetchSessionByName(space.name)
             : false;
 
         // if session with same name already exist, then prompt to override the existing session
@@ -916,7 +917,7 @@ async function requestSessionPresence(sessionName) {
         let tempName = 'Imported space: ';
         let count = 1;
 
-        while (await spacesService.getSessionByName(tempName + count)) {
+        while (await dbService.fetchSessionByName(tempName + count)) {
             count += 1;
         }
 
@@ -932,7 +933,7 @@ async function requestSessionPresence(sessionName) {
 
     async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
         // check to make sure session name doesn't already exist
-        const existingSession = await spacesService.getSessionByName(sessionName);
+        const existingSession = await dbService.fetchSessionByName(sessionName);
 
         // if session with same name already exist, then prompt to override the existing session
         if (existingSession) {
@@ -951,7 +952,7 @@ async function requestSessionPresence(sessionName) {
     }
 
     async function handleDeleteSession(sessionId, callback) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
         if (!session) {
             console.error(`handleDeleteSession: No session found with id ${sessionId}`);
             callback(false);
@@ -962,7 +963,7 @@ async function requestSessionPresence(sessionName) {
     }
 
     async function handleAddLinkToNewSession(url, sessionName, callback) {
-        const session = await spacesService.getSessionByName(sessionName);
+        const session = await dbService.fetchSessionByName(sessionName);
         const newTabs = [{ url }];
 
         // if we found a session matching this name then return as an error as we are
@@ -978,7 +979,7 @@ async function requestSessionPresence(sessionName) {
 
     function handleMoveTabToNewSession(tabId, sessionName, callback) {
         requestTabDetail(tabId, async tab => {
-            const session = await spacesService.getSessionByName(sessionName);
+            const session = await dbService.fetchSessionByName(sessionName);
 
             // if we found a session matching this name then return as an error as we are
             // supposed to be creating a new session with this name
@@ -1002,7 +1003,7 @@ async function requestSessionPresence(sessionName) {
     }
 
     async function handleAddLinkToSession(url, sessionId, callback) {
-        const session = await spacesService.getSessionBySessionId(sessionId);
+        const session = await dbService.fetchSessionById(sessionId);
         const newTabs = [{ url }];
 
         // if we have not found a session matching this name then return as an error as we are
@@ -1035,7 +1036,7 @@ async function requestSessionPresence(sessionName) {
 
     function handleMoveTabToSession(tabId, sessionId, callback) {
         requestTabDetail(tabId, async tab => {
-            const session = await spacesService.getSessionBySessionId(sessionId);
+            const session = await dbService.fetchSessionById(sessionId);
             const newTabs = [tab];
 
             // if we have not found a session matching this name then return as an error as we are

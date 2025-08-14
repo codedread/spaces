@@ -126,6 +126,22 @@ export var dbService = {
     },
 
     /**
+     * Fetches a session by window ID.
+     * @param {number} windowId - The window ID to search for
+     * @returns {Promise<Object|false>} Promise that resolves to session object or false if not found
+     */
+    async fetchSessionByWindowId(windowId) {
+        try {
+            const sessions = await dbService._fetchAllSessions();
+            const matchedSession = sessions.find(session => session.windowId === windowId);
+            return matchedSession || false;
+        } catch (error) {
+            console.error('Error fetching session by window ID:', error);
+            return false;
+        }
+    },
+
+    /**
      * Fetches a session by name.
      * @param {string} sessionName - The session name to search for
      * @returns {Promise<Object|false>} Promise that resolves to session object or false if not found
