@@ -197,18 +197,18 @@ export var dbService = {
     /**
      * Removes a session from the database.
      * @param {string} id - The session ID to remove
-     * @param {Function} callback - Callback function called when removal is complete
+     * @returns {Promise<boolean>} Promise that resolves to true if successful, false if failed
      */
-    removeSession(id, callback) {
+    async removeSession(id) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
 
-        dbService
-            .getDb()
-            .then(s => {
-                return s.remove(dbService.DB_SESSIONS, _id);
-            })
-            .then(_callback);
+        try {
+            const s = await dbService.getDb();
+            await s.remove(dbService.DB_SESSIONS, _id);
+            return true;
+        } catch (error) {
+            console.error('Error removing session:', error);
+            return false;
+        }
     },
 };

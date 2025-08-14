@@ -738,21 +738,27 @@ export var spacesService = {
         }
     },
 
-    deleteSession(sessionId, callback) {
+    async deleteSession(sessionId, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
 
-        dbService.removeSession(sessionId, async () => {
-            // remove session from cached array
-            spacesService.sessions.some((session, index) => {
-                if (session.id === sessionId) {
-                    spacesService.sessions.splice(index, 1);
-                    return true;
-                }
-                return false;
-            });
-            callback();
-        });
+        try {
+            const success = await dbService.removeSession(sessionId);
+            if (success) {
+                // remove session from cached array
+                spacesService.sessions.some((session, index) => {
+                    if (session.id === sessionId) {
+                        spacesService.sessions.splice(index, 1);
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            callback(success);
+        } catch (error) {
+            console.error('Error deleting session:', error);
+            callback(false);
+        }
     },
 };
