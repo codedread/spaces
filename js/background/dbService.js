@@ -157,25 +157,20 @@ export var dbService = {
     /**
      * Creates a new session in the database.
      * @param {Object} session - The session object to create (id will be auto-generated)
-     * @param {Function} callback - Callback function that receives the created session with ID
+     * @returns {Promise<Object|null>} Promise that resolves to created session with ID or null if failed
      */
-    createSession(session, callback) {
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-
+    async createSession(session) {
         // delete session id in case it already exists
         const { id, ..._session } = session;
 
-        dbService
-            .getDb()
-            .then(s => {
-                return s.add(dbService.DB_SESSIONS, _session);
-            })
-            .then(result => {
-                if (result.length > 0) {
-                    _callback(result[0]);
-                }
-            });
+        try {
+            const s = await dbService.getDb();
+            const result = await s.add(dbService.DB_SESSIONS, _session);
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            console.error('Error creating session:', error);
+            return null;
+        }
     },
 
     /**

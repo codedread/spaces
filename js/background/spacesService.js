@@ -722,12 +722,20 @@ export var spacesService = {
         session.lastAccess = new Date();
 
         // save session to db
-        dbService.createSession(session, savedSession => {
-            // update sessionId in cache
-            session.id = savedSession.id;
-
-            callback(savedSession);
-        });
+        try {
+            const savedSession = await dbService.createSession(session);
+            if (savedSession) {
+                // update sessionId in cache
+                session.id = savedSession.id;
+                callback(savedSession);
+            } else {
+                console.error('Failed to create session');
+                callback(false);
+            }
+        } catch (error) {
+            console.error('Error creating session:', error);
+            callback(false);
+        }
     },
 
     deleteSession(sessionId, callback) {
