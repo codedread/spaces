@@ -53,7 +53,7 @@ export var dbService = {
         });
     },
 
-    _fetchSessionById: id => {
+    _fetchSessionById(id) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         return dbService.getDb().then(s => {
             return s
@@ -68,7 +68,7 @@ export var dbService = {
         });
     },
 
-    fetchAllSessions: callback => {
+    fetchAllSessions(callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
         dbService._fetchAllSessions().then(sessions => {
@@ -76,7 +76,7 @@ export var dbService = {
         });
     },
 
-    fetchSessionById: (id, callback) => {
+    fetchSessionById(id, callback) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -85,7 +85,7 @@ export var dbService = {
         });
     },
 
-    fetchSessionNames: callback => {
+    fetchSessionNames(callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
 
@@ -98,7 +98,7 @@ export var dbService = {
         });
     },
 
-    fetchSessionByName: (sessionName, callback) => {
+    fetchSessionByName(sessionName, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
 
@@ -120,7 +120,7 @@ export var dbService = {
         });
     },
 
-    createSession: (session, callback) => {
+    createSession(session, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
 
@@ -139,7 +139,7 @@ export var dbService = {
             });
     },
 
-    updateSession: (session, callback) => {
+    updateSession(session, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
 
@@ -161,7 +161,7 @@ export var dbService = {
             });
     },
 
-    removeSession: (id, callback) => {
+    removeSession(id, callback) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
