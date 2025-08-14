@@ -11,7 +11,8 @@ export var dbService = {
     noop() {},
 
     /**
-     * INDEXEDDB FUNCTIONS
+     * Opens and returns a database connection
+     * @returns {Promise} Promise that resolves to database connection
      */
     getDb() {
         return db.open({
@@ -30,6 +31,10 @@ export var dbService = {
      * session.history:      an array of chrome tab objects that have been removed from the session
      * session.lastAccess:   timestamp that gets updated with every window focus
      */
+    /**
+     * Returns database schema definition
+     * @returns {Object} Database schema configuration object
+     */
     getSchema() {
         return {
             ttSessions: {
@@ -44,6 +49,10 @@ export var dbService = {
         };
     },
 
+    /**
+     * Fetches all sessions from the database
+     * @returns {Promise<Array>} Promise that resolves to array of session objects
+     */
     _fetchAllSessions() {
         return dbService.getDb().then(s => {
             return s
@@ -53,6 +62,11 @@ export var dbService = {
         });
     },
 
+    /**
+     * Fetches a session by ID from the database
+     * @param {string} id - The session ID to fetch
+     * @returns {Promise<Object|null>} Promise that resolves to session object or null if not found
+     */
     _fetchSessionById(id) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         return dbService.getDb().then(s => {
@@ -68,6 +82,10 @@ export var dbService = {
         });
     },
 
+    /**
+     * Fetches all sessions from the database and calls callback with results
+     * @param {Function} callback - Callback function that receives array of sessions
+     */
     fetchAllSessions(callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -76,6 +94,11 @@ export var dbService = {
         });
     },
 
+    /**
+     * Fetches a session by ID and calls callback with result
+     * @param {string} id - The session ID to fetch
+     * @param {Function} callback - Callback function that receives session object or null
+     */
     fetchSessionById(id, callback) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         const _callback =
@@ -85,6 +108,10 @@ export var dbService = {
         });
     },
 
+    /**
+     * Fetches all session names and calls callback with results
+     * @param {Function} callback - Callback function that receives array of session names
+     */
     fetchSessionNames(callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -98,6 +125,11 @@ export var dbService = {
         });
     },
 
+    /**
+     * Fetches a session by name and calls callback with result
+     * @param {string} sessionName - The session name to search for
+     * @param {Function} callback - Callback function that receives session object or false if not found
+     */
     fetchSessionByName(sessionName, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -120,6 +152,11 @@ export var dbService = {
         });
     },
 
+    /**
+     * Creates a new session in the database
+     * @param {Object} session - The session object to create (id will be auto-generated)
+     * @param {Function} callback - Callback function that receives the created session with ID
+     */
     createSession(session, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -139,6 +176,11 @@ export var dbService = {
             });
     },
 
+    /**
+     * Updates an existing session in the database
+     * @param {Object} session - The session object to update (must have valid id)
+     * @param {Function} callback - Callback function that receives the updated session or false if failed
+     */
     updateSession(session, callback) {
         const _callback =
             typeof callback !== 'function' ? dbService.noop : callback;
@@ -161,6 +203,11 @@ export var dbService = {
             });
     },
 
+    /**
+     * Removes a session from the database
+     * @param {string} id - The session ID to remove
+     * @param {Function} callback - Callback function called when removal is complete
+     */
     removeSession(id, callback) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         const _callback =
