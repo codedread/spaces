@@ -27,7 +27,9 @@ export var spacesService = {
         const lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
 
-        dbService.fetchAllSessions(sessions => {
+        try {
+            const sessions = await dbService.fetchAllSessions();
+            
             if (
                 chrome.runtime.getManifest().version === '0.18' &&
                 chrome.runtime.getManifest().version !== lastVersion
@@ -52,7 +54,9 @@ export var spacesService = {
                     }
                 });
             });
-        });
+        } catch (error) {
+            console.error('Error initializing spaces:', error);
+        }
     },
 
     resetAllSessionHashes(sessions) {

@@ -11,7 +11,7 @@ export var dbService = {
     noop() {},
 
     /**
-     * Opens and returns a database connection
+     * Opens and returns a database connection.
      * @returns {Promise} Promise that resolves to database connection
      */
     getDb() {
@@ -32,7 +32,7 @@ export var dbService = {
      * session.lastAccess:   timestamp that gets updated with every window focus
      */
     /**
-     * Returns database schema definition
+     * Returns database schema definition.
      * @returns {Object} Database schema configuration object
      */
     getSchema() {
@@ -50,7 +50,7 @@ export var dbService = {
     },
 
     /**
-     * Fetches all sessions from the database
+     * Fetches all sessions from the database.
      * @returns {Promise<Array>} Promise that resolves to array of session objects
      */
     _fetchAllSessions() {
@@ -63,7 +63,7 @@ export var dbService = {
     },
 
     /**
-     * Fetches a session by ID from the database
+     * Fetches a session by ID from the database.
      * @param {string} id - The session ID to fetch
      * @returns {Promise<Object|null>} Promise that resolves to session object or null if not found
      */
@@ -83,19 +83,21 @@ export var dbService = {
     },
 
     /**
-     * Fetches all sessions from the database and calls callback with results
-     * @param {Function} callback - Callback function that receives array of sessions
+     * Fetches all sessions from the database.
+     * @returns {Promise<Array>} Promise that resolves to array of session objects
      */
-    fetchAllSessions(callback) {
-        const _callback =
-            typeof callback !== 'function' ? dbService.noop : callback;
-        dbService._fetchAllSessions().then(sessions => {
-            _callback(sessions);
-        });
+    async fetchAllSessions() {
+        try {
+            const sessions = await dbService._fetchAllSessions();
+            return sessions;
+        } catch (error) {
+            console.error('Error fetching all sessions:', error);
+            return [];
+        }
     },
 
     /**
-     * Fetches a session by ID and calls callback with result
+     * Fetches a session by ID and calls callback with result.
      * @param {string} id - The session ID to fetch
      * @param {Function} callback - Callback function that receives session object or null
      */
@@ -109,7 +111,7 @@ export var dbService = {
     },
 
     /**
-     * Fetches all session names and calls callback with results
+     * Fetches all session names and calls callback with results.
      * @param {Function} callback - Callback function that receives array of session names
      */
     fetchSessionNames(callback) {
@@ -126,7 +128,7 @@ export var dbService = {
     },
 
     /**
-     * Fetches a session by name and calls callback with result
+     * Fetches a session by name and calls callback with result.
      * @param {string} sessionName - The session name to search for
      * @param {Function} callback - Callback function that receives session object or false if not found
      */
@@ -153,7 +155,7 @@ export var dbService = {
     },
 
     /**
-     * Creates a new session in the database
+     * Creates a new session in the database.
      * @param {Object} session - The session object to create (id will be auto-generated)
      * @param {Function} callback - Callback function that receives the created session with ID
      */
@@ -177,7 +179,7 @@ export var dbService = {
     },
 
     /**
-     * Updates an existing session in the database
+     * Updates an existing session in the database.
      * @param {Object} session - The session object to update (must have valid id)
      * @param {Function} callback - Callback function that receives the updated session or false if failed
      */
@@ -204,7 +206,7 @@ export var dbService = {
     },
 
     /**
-     * Removes a session from the database
+     * Removes a session from the database.
      * @param {string} id - The session ID to remove
      * @param {Function} callback - Callback function called when removal is complete
      */
