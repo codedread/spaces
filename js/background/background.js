@@ -20,6 +20,38 @@ let spacesOpenWindowId = false;
 const noop = () => {};
 const debug = false;
 
+async function rediscoverSpacesWindow() {
+    // Try to restore from storage first
+    const stored = await chrome.storage.local.get('spacesOpenWindowId');
+    if (stored.spacesOpenWindowId) {
+        // Verify the window still exists
+        try {
+            const window = await chrome.windows.get(stored.spacesOpenWindowId);
+            if (window) {
+                spacesOpenWindowId = stored.spacesOpenWindowId;
+                return;
+            }
+        } catch (error) {
+            // Window doesn't exist, remove from storage
+            await chrome.storage.local.remove('spacesOpenWindowId');
+        }
+    }
+
+    // If not in storage or window doesn't exist, search for spaces window by URL
+    const spacesUrl = chrome.runtime.getURL('spaces.html');
+    const allWindows = await chrome.windows.getAll({populate: true});
+    
+    for (const window of allWindows) {
+        for (const tab of window.tabs) {
+            if (tab.url && tab.url.startsWith(spacesUrl)) {
+                spacesOpenWindowId = window.id;
+                await chrome.storage.local.set({spacesOpenWindowId: window.id});
+                return;
+            }
+        }
+    }
+}
+
 // runtime extension install listener
 chrome.runtime.onInstalled.addListener(details => {
     console.log(`Extension installed: ${JSON.stringify(details)}`);
@@ -48,6 +80,7 @@ chrome.runtime.onInstalled.addListener(details => {
 // Handle Chrome startup - this is when window IDs get reassigned!
 chrome.runtime.onStartup.addListener(async () => {
     await spacesService.initialiseSpaces();
+    await rediscoverSpacesWindow();
 });
 
 // LISTENERS
@@ -99,6 +132,8 @@ chrome.runtime.onStartup.addListener(async () => {
         chrome.windows.getAll({}, windows => {
             if (windows.length === 1 && spacesOpenWindowId) {
                 chrome.windows.remove(spacesOpenWindowId);
+                spacesOpenWindowId = false;
+                chrome.storage.local.remove('spacesOpenWindowId');
             }
         });
     });
@@ -523,6 +558,7 @@ chrome.runtime.onStartup.addListener(async () => {
                 },
                 window => {
                     spacesOpenWindowId = window.id;
+                    chrome.storage.local.set({spacesOpenWindowId: window.id});
                 }
             );
         }
@@ -646,7 +682,12 @@ chrome.runtime.onStartup.addListener(async () => {
     async function updateSpacesWindow(source) {
         if (debug) {
             // eslint-disable-next-line no-console
-            console.log(`updateSpacesWindow triggered. source: ${source}`);
+            console.log(`updateSpacesWindow: triggered. source: ${source}`);
+        }
+
+        // If we don't have a cached spacesOpenWindowId, try to find the spaces window
+        if (!spacesOpenWindowId) {
+            await rediscoverSpacesWindow();
         }
 
         if (spacesOpenWindowId) {
@@ -655,6 +696,7 @@ chrome.runtime.onStartup.addListener(async () => {
               // eslint-disable-next-line no-console
               console.log(`updateSpacesWindow: Error getting spacesOpenWindow: ${chrome.runtime.lastError}`);
               spacesOpenWindowId = false;
+              await chrome.storage.local.remove('spacesOpenWindowId');
               return;
             }
 
@@ -674,7 +716,10 @@ chrome.runtime.onStartup.addListener(async () => {
 
     function checkInternalSpacesWindows(windowId, windowClosed) {
         if (windowId === spacesOpenWindowId) {
-            if (windowClosed) spacesOpenWindowId = false;
+            if (windowClosed) {
+                spacesOpenWindowId = false;
+                chrome.storage.local.remove('spacesOpenWindowId');
+            }
             return true;
         }
         if (windowId === spacesPopupWindowId) {
