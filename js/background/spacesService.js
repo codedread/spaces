@@ -17,11 +17,33 @@ export var spacesService = {
     historyQueue: [],
     eventQueueCount: 0,
     debug: true,
+    initialized: false,
+    initializationPromise: null,
 
     noop: () => {},
 
+    // Ensure spacesService is initialized before processing events
+    async ensureInitialized() {
+        if (spacesService.initialized) {
+            return;
+        }
+        
+        if (spacesService.initializationPromise) {
+            await spacesService.initializationPromise;
+            return;
+        }
+        
+        spacesService.initializationPromise = spacesService.initialiseSpaces().then(() => {
+            spacesService.initialized = true;
+            spacesService.initializationPromise = null;
+        });
+        
+        await spacesService.initializationPromise;
+    },
+
     // initialise spaces - combine open windows with saved sessions
     async initialiseSpaces() {
+        spacesService.initialized = false; // Reset on re-initialization
         console.log(`Inside spacesService.initialiseSpaces()`);
         // update version numbers
         const lastVersion = await spacesService.fetchLastVersion();
@@ -51,14 +73,18 @@ export var spacesService = {
                 }
 
                 // then try to match current open windows with saved sessions
-                windows.forEach(curWindow => {
+                for (const curWindow of windows) {
                     if (!spacesService.filterInternalWindows(curWindow)) {
-                        spacesService.checkForSessionMatch(curWindow);
+                        await spacesService.checkForSessionMatch(curWindow);
                     }
-                });
+                }
+                
+                // Initialization complete
+                spacesService.initialized = true;
             });
         } catch (error) {
             console.error('Error initializing spaces:', error);
+            spacesService.initialized = false;
         }
     },
 
@@ -403,7 +429,7 @@ export var spacesService = {
     async handleWindowFocussed(windowId) {
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
-            console.log(`handlingWindowFocussed event. windowId: ${windowId}`);
+            console.log(`handleWindowFocussed event. windowId: ${windowId}`);
         }
 
         if (windowId <= 0) {

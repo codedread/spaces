@@ -45,10 +45,16 @@ chrome.runtime.onInstalled.addListener(details => {
     });
 });
 
+// Handle Chrome startup - this is when window IDs get reassigned!
+chrome.runtime.onStartup.addListener(async () => {
+    await spacesService.initialiseSpaces();
+});
+
 // LISTENERS
 
     // add listeners for session monitoring
-    chrome.tabs.onCreated.addListener(tab => {
+    chrome.tabs.onCreated.addListener(async (tab) => {
+        await spacesService.ensureInitialized();
         // this call to checkInternalSpacesWindows actually returns false when it should return true
         // due to the event being called before the globalWindowIds get set. oh well, never mind.
         if (checkInternalSpacesWindows(tab.windowId, false)) return;
@@ -56,26 +62,30 @@ chrome.runtime.onInstalled.addListener(details => {
         // spacesService.handleTabCreated(tab);
         updateSpacesWindow('tabs.onCreated');
     });
-    chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
+        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(removeInfo.windowId, false)) return;
         spacesService.handleTabRemoved(tabId, removeInfo, () => {
             updateSpacesWindow('tabs.onRemoved');
         });
     });
-    chrome.tabs.onMoved.addListener((tabId, moveInfo) => {
+    chrome.tabs.onMoved.addListener(async (tabId, moveInfo) => {
+        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(moveInfo.windowId, false)) return;
         spacesService.handleTabMoved(tabId, moveInfo, () => {
             updateSpacesWindow('tabs.onMoved');
         });
     });
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(tab.windowId, false)) return;
 
         spacesService.handleTabUpdated(tab, changeInfo, () => {
             updateSpacesWindow('tabs.onUpdated');
         });
     });
-    chrome.windows.onRemoved.addListener(windowId => {
+    chrome.windows.onRemoved.addListener(async (windowId) => {
+        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(windowId, true)) return;
         spacesService.handleWindowRemoved(windowId, true, () => {
             updateSpacesWindow('windows.onRemoved');
@@ -101,7 +111,7 @@ chrome.runtime.onInstalled.addListener(details => {
 
     // add listeners for tab and window focus changes
     // when a tab or window is changed, close the move tab popup if it is open
-    chrome.windows.onFocusChanged.addListener(windowId => {
+    chrome.windows.onFocusChanged.addListener(async (windowId) => {
         // Prevent a click in the popup on Ubunto or ChroneOS from closing the
         // popup prematurely.
         if (
@@ -116,6 +126,8 @@ chrome.runtime.onInstalled.addListener(details => {
                 closePopupWindow();
             }
         }
+        
+        await spacesService.ensureInitialized();
         spacesService.handleWindowFocussed(windowId);
     });
 
@@ -127,6 +139,21 @@ chrome.runtime.onInstalled.addListener(details => {
             console.log(`listener fired: ${JSON.stringify(request)}`);
         }
 
+        // Ensure spacesService is initialized before processing any message
+        spacesService.ensureInitialized().then(() => {
+            const result = processMessage(request, sender, sendResponse);
+            // If processMessage returns false, we need to handle that by not sending a response
+            // But since we're in an async context, we can't change the outer return value
+            // The key is that processMessage will call sendResponse() for true cases
+            // and won't call it for false cases, which is the correct behavior
+        });
+        
+        // We have to return true here because we're handling everything asynchronously
+        // The actual response sending is controlled by whether processMessage calls sendResponse()
+        return true;
+    });
+
+    function processMessage(request, sender, sendResponse) {
         let sessionId;
         let windowId;
         let tabId;
@@ -140,6 +167,7 @@ chrome.runtime.onInstalled.addListener(details => {
 
             case 'requestSpaceFromWindowId':
                 windowId = _cleanParameter(request.windowId);
+                console.log(`background.js: requestSpaceFromWindowId for request.windowId=${request.windowId}, cleaned window ID: ${windowId}`);
                 if (windowId) {
                     requestSpaceFromWindowId(windowId, sendResponse);
                 }
@@ -414,7 +442,8 @@ chrome.runtime.onInstalled.addListener(details => {
             default:
                 return false;
         }
-    });
+    }
+    
     function _cleanParameter(param) {
         if (typeof param === 'number') {
             return param;
