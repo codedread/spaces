@@ -563,7 +563,7 @@ export var spacesService = {
 
                 // if it is a saved session then update db
                 if (session.id) {
-                    spacesService.saveExistingSession(session.id);
+                    spacesService.saveExistingSession(session, callback);
                 }
             }
 
@@ -664,7 +664,7 @@ export var spacesService = {
         session.tabs = tabs;
         session.sessionHash = spacesService.generateSessionHash(session.tabs);
 
-        spacesService.saveExistingSession(session.id, callback);
+        spacesService.saveExistingSession(session, callback);
     },
 
     async updateSessionName(sessionId, sessionName, callback) {
@@ -675,12 +675,10 @@ export var spacesService = {
         const session = await dbService.fetchSessionById(sessionId);
         session.name = sessionName;
 
-        spacesService.saveExistingSession(session.id, callback);
+        spacesService.saveExistingSession(session, callback);
     },
 
-    async saveExistingSession(sessionId, callback) {
-        const session = await dbService.fetchSessionById(sessionId);
-
+    async saveExistingSession(session, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
