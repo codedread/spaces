@@ -16,7 +16,7 @@ export var spacesService = {
     sessionUpdateTimers: {},
     historyQueue: [],
     eventQueueCount: 0,
-    debug: true,
+    debug: false,
     initialized: false,
     initializationPromise: null,
 

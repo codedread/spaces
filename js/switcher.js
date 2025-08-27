@@ -22,10 +22,6 @@ function getSelectedSpace() {
 
     async function getSwitchKeycodes(callback) {
             const commands = await chrome.commands.getAll();
-
-            // eslint-disable-next-line no-console
-            console.dir(commands);
-
             const commandStr = commands.switchCode;
             const keyStrArray = commandStr.split('+');
 

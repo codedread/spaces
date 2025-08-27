@@ -59,38 +59,4 @@ export var utils = {
         });
         return valuesByKey[key] || false;
     },
-
-    async getSwitchKeycodes(callback) {
-            const commands = await chrome.commands.getAll();
-            // eslint-disable-next-line no-console
-            console.dir(commands);
-
-            const commandStr = commands.switchCode;
-
-            const keyStrArray = commandStr.split('+');
-
-            // get keyStr of primary modifier
-            const primaryModifier = keyStrArray[0];
-
-            // get keyStr of secondary modifier
-            const secondaryModifier =
-                keyStrArray.length === 3 ? keyStrArray[1] : false;
-
-            // get keycode of main key (last in array)
-            const curStr = keyStrArray[keyStrArray.length - 1];
-
-            // TODO: There's others. Period. Up Arrow etc.
-            let mainKeyCode;
-            if (curStr === 'Space') {
-                mainKeyCode = 32;
-            } else {
-                mainKeyCode = curStr.toUpperCase().charCodeAt();
-            }
-
-            callback({
-                primaryModifier,
-                secondaryModifier,
-                mainKeyCode,
-            });
-    },
 };
