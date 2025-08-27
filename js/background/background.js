@@ -82,6 +82,7 @@ chrome.runtime.onInstalled.addListener(details => {
 
 // Handle Chrome startup - this is when window IDs get reassigned!
 chrome.runtime.onStartup.addListener(async () => {
+    await spacesService.clearWindowIdAssociations();
     await spacesService.initialiseSpaces();
     await rediscoverWindowIds();
 });

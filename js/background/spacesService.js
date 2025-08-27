@@ -63,19 +63,10 @@ export var spacesService = {
                 // populate session map from database
                 spacesService.sessions = sessions;
 
-                // clear any previously saved windowIds both in memory and database
-                for (const session of spacesService.sessions) {
-                    if (session.windowId) {
-                        session.windowId = false;
-                        // Persist the cleared windowId to database
-                        await dbService.updateSession(session);
-                    }
-                }
-
                 // then try to match current open windows with saved sessions
                 for (const curWindow of windows) {
                     if (!spacesService.filterInternalWindows(curWindow)) {
-                        await spacesService.checkForSessionMatch(curWindow);
+                        await spacesService.checkForSessionMatchDuringInit(curWindow);
                     }
                 }
                 
@@ -85,6 +76,33 @@ export var spacesService = {
         } catch (error) {
             console.error('Error initializing spaces:', error);
             spacesService.initialized = false;
+        }
+    },
+
+    // Clear windowId associations after Chrome restart (when window IDs get reassigned)
+    async clearWindowIdAssociations() {
+        try {
+            const sessions = await dbService.fetchAllSessions();
+            
+            // clear any previously saved windowIds both in memory and database
+            for (const session of sessions) {
+                if (session.windowId) {
+                    session.windowId = false;
+                    // Persist the cleared windowId to database
+                    await dbService.updateSession(session);
+                }
+            }
+            
+            // Also clear from in-memory cache if it's already loaded
+            if (spacesService.sessions && spacesService.sessions.length > 0) {
+                for (const session of spacesService.sessions) {
+                    if (session.windowId) {
+                        session.windowId = false;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error clearing window ID associations:', error);
         }
     },
 
@@ -181,6 +199,34 @@ export var spacesService = {
             return true;
         }
         return false;
+    },
+
+    async checkForSessionMatchDuringInit(curWindow) {
+        if (!curWindow.tabs || curWindow.tabs.length === 0) {
+            return;
+        }
+
+        // First, check if there's already a session with this windowId (service worker reactivation case)
+        let existingSession = null;
+        try {
+            existingSession = await dbService.fetchSessionByWindowId(curWindow.id);
+        } catch (error) {
+            console.error('Error fetching session by windowId:', error);
+        }
+
+        if (existingSession) {
+            if (spacesService.debug) {
+                // eslint-disable-next-line no-console
+                console.log(
+                    `existing session found for windowId: ${curWindow.id}. session: ${existingSession.id || 'temporary'}`
+                );
+            }
+            // Session already exists for this window, no need to create or match anything
+            return;
+        }
+
+        // If no existing session, fall back to hash matching (Chrome restart case)
+        await spacesService.checkForSessionMatch(curWindow);
     },
 
     async checkForSessionMatch(curWindow) {
