@@ -206,14 +206,12 @@ chrome.runtime.onStartup.addListener(async () => {
 
             case 'requestSpaceFromWindowId':
                 windowId = _cleanParameter(request.windowId);
-                console.log(`background.js: requestSpaceFromWindowId for request.windowId=${request.windowId}, cleaned window ID: ${windowId}`);
                 if (windowId) {
                     requestSpaceFromWindowId(windowId, sendResponse);
                 }
                 return true;
 
             case 'requestCurrentSpace':
-                console.log('requestCurrentSpace event received');
                 requestCurrentSpace(sendResponse);
                 return true;
 
@@ -764,7 +762,6 @@ async function requestSessionPresence(sessionName) {
         const session = await dbService.fetchSessionByWindowId(windowId);
 
         if (session) {
-            console.log(`codedread: requestSpaceFromWindowId() found session: ${session.id} for windowId: ${windowId}`);
             /** @type {Space} */
             const space = {
                 sessionId: session.id,
@@ -773,12 +770,10 @@ async function requestSessionPresence(sessionName) {
                 tabs: session.tabs,
                 history: session.history,
             };
-            console.dir(space);
             callback(space);
 
         // otherwise build a space object out of the actual window
         } else {
-            console.log(`codedread: requestSpaceFromWindowId() found no session for windowId: ${windowId}`);
             chrome.windows.get(windowId, { populate: true }, window => {
                 // if failed to load requested window
                 if (chrome.runtime.lastError) {

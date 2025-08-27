@@ -44,7 +44,7 @@ export var spacesService = {
     // initialise spaces - combine open windows with saved sessions
     async initialiseSpaces() {
         spacesService.initialized = false; // Reset on re-initialization
-        console.log(`Inside spacesService.initialiseSpaces()`);
+
         // update version numbers
         const lastVersion = await spacesService.fetchLastVersion();
         spacesService.setLastVersion(chrome.runtime.getManifest().version);
