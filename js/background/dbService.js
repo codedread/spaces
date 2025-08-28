@@ -151,7 +151,7 @@ export var dbService = {
             const sessions = await dbService._fetchAllSessions();
             let matchIndex;
             const matchFound = sessions.some((session, index) => {
-                if (session.name.toLowerCase() === sessionName.toLowerCase()) {
+                if (session.name?.toLowerCase() === sessionName.toLowerCase()) {
                     matchIndex = index;
                     return true;
                 }
