@@ -91,7 +91,6 @@ chrome.runtime.onStartup.addListener(async () => {
 
     // add listeners for session monitoring
     chrome.tabs.onCreated.addListener(async (tab) => {
-        await spacesService.ensureInitialized();
         // this call to checkInternalSpacesWindows actually returns false when it should return true
         // due to the event being called before the globalWindowIds get set. oh well, never mind.
         if (checkInternalSpacesWindows(tab.windowId, false)) return;
@@ -100,21 +99,18 @@ chrome.runtime.onStartup.addListener(async () => {
         updateSpacesWindow('tabs.onCreated');
     });
     chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(removeInfo.windowId, false)) return;
         spacesService.handleTabRemoved(tabId, removeInfo, () => {
             updateSpacesWindow('tabs.onRemoved');
         });
     });
     chrome.tabs.onMoved.addListener(async (tabId, moveInfo) => {
-        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(moveInfo.windowId, false)) return;
         spacesService.handleTabMoved(tabId, moveInfo, () => {
             updateSpacesWindow('tabs.onMoved');
         });
     });
     chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(tab.windowId, false)) return;
 
         spacesService.handleTabUpdated(tab, changeInfo, () => {
@@ -122,7 +118,6 @@ chrome.runtime.onStartup.addListener(async () => {
         });
     });
     chrome.windows.onRemoved.addListener(async (windowId) => {
-        await spacesService.ensureInitialized();
         if (checkInternalSpacesWindows(windowId, true)) return;
         spacesService.handleWindowRemoved(windowId, true, () => {
             updateSpacesWindow('windows.onRemoved');
@@ -166,7 +161,6 @@ chrome.runtime.onStartup.addListener(async () => {
             }
         }
         
-        await spacesService.ensureInitialized();
         spacesService.handleWindowFocussed(windowId);
     });
 

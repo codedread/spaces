@@ -125,7 +125,7 @@ export var spacesService = {
         });
     },
 
-    // NOTE: if ever changing this funciton, then we'll need to update all
+    // NOTE: if ever changing this function, then we'll need to update all
     // saved sessionHashes so that they match next time, using: resetAllSessionHashes()
     _cleanUrl(url) {
         if (!url) {
@@ -278,6 +278,8 @@ export var spacesService = {
     },
 
     async matchSessionToWindow(session, curWindow) {
+        await spacesService.ensureInitialized();
+        
         // remove any other sessions tied to this windowId (temporary sessions)
         for (let i = spacesService.sessions.length - 1; i >= 0; i -= 1) {
             if (spacesService.sessions[i].windowId === curWindow.id) {
@@ -343,6 +345,8 @@ export var spacesService = {
     // -----------------------------------------------------------------------------------------
 
     async handleTabRemoved(tabId, removeInfo, callback) {
+        await spacesService.ensureInitialized();
+        
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(
@@ -382,7 +386,9 @@ export var spacesService = {
         }
     },
 
-    handleTabMoved(tabId, moveInfo, callback) {
+    async handleTabMoved(tabId, moveInfo, callback) {
+        await spacesService.ensureInitialized();
+        
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(
@@ -397,6 +403,8 @@ export var spacesService = {
     },
 
     async handleTabUpdated(tab, changeInfo, callback) {
+        await spacesService.ensureInitialized();
+        
         // NOTE: only queue event when tab has completed loading (title property exists at this point)
         if (tab.status === 'complete') {
             if (spacesService.debug) {
@@ -427,6 +435,8 @@ export var spacesService = {
     },
 
     async handleWindowRemoved(windowId, markAsClosed, callback) {
+        await spacesService.ensureInitialized();
+        
         // ignore subsequent windowRemoved events for the same windowId (each closing tab will try to call this)
         if (spacesService.closedWindowIds[windowId]) {
             callback();
@@ -473,6 +483,8 @@ export var spacesService = {
     },
 
     async handleWindowFocussed(windowId) {
+        await spacesService.ensureInitialized();
+        
         if (spacesService.debug) {
             // eslint-disable-next-line no-console
             console.log(`handleWindowFocussed event. windowId: ${windowId}`);
@@ -739,6 +751,8 @@ export var spacesService = {
     },
 
     async saveNewSession(sessionName, tabs, windowId, callback) {
+        await spacesService.ensureInitialized();
+        
         if (!tabs) {
             callback();
             return;
