@@ -514,7 +514,7 @@ export var spacesService = {
     },
 
     // careful here as this function gets called A LOT
-    handleWindowEvent(windowId, eventId, callback) {
+    async handleWindowEvent(windowId, eventId, callback) {
         // eslint-disable-next-line no-param-reassign
         callback =
             typeof callback !== 'function' ? spacesService.noop : callback;
@@ -540,102 +540,103 @@ export var spacesService = {
             return;
         }
 
-        chrome.windows.get(windowId, { populate: true }, async curWindow => {
-            if (chrome.runtime.lastError) {
+        let curWindow;
+        try {
+            curWindow = await chrome.windows.get(windowId, { populate: true });
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.log(
+                `${e.message}. perhaps its the development console???`
+            );
+
+            // if we can't find this window, then better remove references to it from the cached sessions
+            // don't mark as a removed window however, so that the space can be resynced up if the window
+            // does actually still exist (for some unknown reason)
+            spacesService.handleWindowRemoved(
+                windowId,
+                false,
+                spacesService.noop
+            );
+            return;
+        }
+
+        if (!curWindow || spacesService.filterInternalWindows(curWindow)) {
+            return;
+        }
+
+        // don't allow event if it pertains to a closed window id
+        if (spacesService.closedWindowIds[windowId]) {
+            if (spacesService.debug) {
                 // eslint-disable-next-line no-console
                 console.log(
-                    `${chrome.runtime.lastError.message}. perhaps its the development console???`
+                    `ignoring event as it pertains to a closed windowId: ${windowId}`
                 );
+            }
+            return;
+        }
 
-                // if we can't find this window, then better remove references to it from the cached sessions
-                // don't mark as a removed window however, so that the space can be resynced up if the window
-                // does actually still exist (for some unknown reason)
-                spacesService.handleWindowRemoved(
-                    windowId,
-                    false,
-                    spacesService.noop
+        // if window is associated with an open session then update session
+        const session = await dbService.fetchSessionByWindowId(windowId);
+
+        if (session) {
+            if (spacesService.debug) {
+                // eslint-disable-next-line no-console
+                console.log(
+                    `tab statuses: ${curWindow.tabs
+                        .map(curTab => {
+                            return curTab.status;
+                        })
+                        .join('|')}`
                 );
-                return;
             }
 
-            if (!curWindow || spacesService.filterInternalWindows(curWindow)) {
-                return;
-            }
+            // look for tabs recently added/removed from this session and update session history
+            const historyItems = spacesService.historyQueue.filter(
+                historyItem => {
+                    return historyItem.windowId === windowId;
+                }
+            );
 
-            // don't allow event if it pertains to a closed window id
-            if (spacesService.closedWindowIds[windowId]) {
-                if (spacesService.debug) {
-                    // eslint-disable-next-line no-console
-                    console.log(
-                        `ignoring event as it pertains to a closed windowId: ${windowId}`
+            for (let i = historyItems.length - 1; i >= 0; i -= 1) {
+                const historyItem = historyItems[i];
+
+                if (historyItem.action === 'add') {
+                    spacesService.addUrlToSessionHistory(
+                        session,
+                        historyItem.url
+                    );
+                } else if (historyItem.action === 'remove') {
+                    spacesService.removeUrlFromSessionHistory(
+                        session,
+                        historyItem.url
                     );
                 }
-                return;
+                spacesService.historyQueue.splice(i, 1);
             }
 
-            // if window is associated with an open session then update session
-            const session = await dbService.fetchSessionByWindowId(windowId);
+            // override session tabs with tabs from window
+            session.tabs = curWindow.tabs;
+            session.sessionHash = spacesService.generateSessionHash(
+                session.tabs
+            );
 
-            if (session) {
-                if (spacesService.debug) {
-                    // eslint-disable-next-line no-console
-                    console.log(
-                        `tab statuses: ${curWindow.tabs
-                            .map(curTab => {
-                                return curTab.status;
-                            })
-                            .join('|')}`
-                    );
-                }
-
-                // look for tabs recently added/removed from this session and update session history
-                const historyItems = spacesService.historyQueue.filter(
-                    historyItem => {
-                        return historyItem.windowId === windowId;
-                    }
-                );
-
-                for (let i = historyItems.length - 1; i >= 0; i -= 1) {
-                    const historyItem = historyItems[i];
-
-                    if (historyItem.action === 'add') {
-                        spacesService.addUrlToSessionHistory(
-                            session,
-                            historyItem.url
-                        );
-                    } else if (historyItem.action === 'remove') {
-                        spacesService.removeUrlFromSessionHistory(
-                            session,
-                            historyItem.url
-                        );
-                    }
-                    spacesService.historyQueue.splice(i, 1);
-                }
-
-                // override session tabs with tabs from window
-                session.tabs = curWindow.tabs;
-                session.sessionHash = spacesService.generateSessionHash(
-                    session.tabs
-                );
-
-                // if it is a saved session then update db
-                if (session.id) {
-                    spacesService.saveExistingSession(session, callback);
-                }
+            // if it is a saved session then update db
+            if (session.id) {
+                spacesService.saveExistingSession(session, callback);
             }
+        }
 
-            // if no session found, it must be a new window.
-            // if session found without session.id then it must be a temporary session
-            // check for sessionMatch
-            if (!session || !session.id) {
-                if (spacesService.debug) {
-                    // eslint-disable-next-line no-console
-                    console.log('session check triggered');
-                }
-                spacesService.checkForSessionMatch(curWindow);
+        // if no session found, it must be a new window.
+        // if session found without session.id then it must be a temporary session
+        // check for sessionMatch
+        if (!session || !session.id) {
+            if (spacesService.debug) {
+                // eslint-disable-next-line no-console
+                console.log('session check triggered');
             }
-            callback();
-        });
+            spacesService.checkForSessionMatch(curWindow);
+        }
+        callback();
     },
 
     // PUBLIC FUNCTIONS

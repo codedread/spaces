@@ -156,7 +156,7 @@ chrome.runtime.onStartup.addListener(async () => {
 
         if (!debug && spacesPopupWindowId) {
             if (spacesPopupWindowId) {
-                closePopupWindow();
+                await closePopupWindow();
             }
         }
         
@@ -524,25 +524,20 @@ chrome.runtime.onStartup.addListener(async () => {
 
         // if spaces open window already exists then just give it focus (should be up to date)
         if (spacesOpenWindowId) {
-            chrome.windows.get(
-                spacesOpenWindowId,
-                { populate: true },
-                window => {
-                    chrome.windows.update(spacesOpenWindowId, {
-                        focused: true,
-                    });
-                    if (window.tabs[0].id) {
-                        chrome.tabs.update(window.tabs[0].id, { url });
-                    }
-                }
-            );
+            const window = await chrome.windows.get(spacesOpenWindowId, { populate: true });
+            await chrome.windows.update(spacesOpenWindowId, {
+                focused: true,
+            });
+            if (window.tabs[0].id) {
+                await chrome.tabs.update(window.tabs[0].id, { url });
+            }
 
             // otherwise re-create it
         } else {
             // TODO(codedread): Handle multiple displays and errors.
             const displays = await chrome.system.display.getInfo();
             let screen = displays[0].bounds;
-            chrome.windows.create(
+            const window = await chrome.windows.create(
                 {
                     type: 'popup',
                     url,
@@ -550,12 +545,9 @@ chrome.runtime.onStartup.addListener(async () => {
                     width: Math.min(screen.width, 1000),
                     top: 0,
                     left: 0,
-                },
-                window => {
-                    spacesOpenWindowId = window.id;
-                    chrome.storage.local.set({spacesOpenWindowId: window.id});
-                }
-            );
+                });
+            spacesOpenWindowId = window.id;
+            await chrome.storage.local.set({spacesOpenWindowId: window.id});
         }
     }
     function showSpacesMoveWindow(tabUrl) {
@@ -593,85 +585,77 @@ chrome.runtime.onStartup.addListener(async () => {
         return params;
     }
 
-    function createOrShowSpacesPopupWindow(action, tabUrl) {
-        generatePopupParams(action, tabUrl).then(async (params) => {
-            const popupUrl = `${chrome.runtime.getURL(
-                'popup.html'
-            )}#opener=bg&${params}`;
-            // if spaces  window already exists
-            if (spacesPopupWindowId) {
-                chrome.windows.get(
-                    spacesPopupWindowId,
-                    { populate: true },
-                    window => {
-                        // if window is currently focused then don't update
-                        if (window.focused) {
-                            // else update popupUrl and give it focus
-                        } else {
-                            chrome.windows.update(spacesPopupWindowId, {
-                                focused: true,
-                            });
-                            if (window.tabs[0].id) {
-                                chrome.tabs.update(window.tabs[0].id, {
-                                    url: popupUrl,
-                                });
-                            }
-                        }
-                    }
-                );
-
-                // otherwise create it
-            } else {
-                // TODO(codedread): Handle multiple displays and errors.
-                const displays = await chrome.system.display.getInfo();
-                let screen = displays[0].bounds;
-
-                chrome.windows.create(
-                    {
-                        type: 'popup',
-                        url: popupUrl,
-                        focused: true,
-                        height: 450,
-                        width: 310,
-                        top: screen.height - 450,
-                        left: screen.width - 310,
-                    },
-                    window => {
-                        spacesPopupWindowId = window.id;
-                        chrome.storage.local.set({spacesPopupWindowId: window.id});
-                    }
-                );
-            }
-        });
-    }
-
-    function closePopupWindow() {
+    async function createOrShowSpacesPopupWindow(action, tabUrl) {
+        const params = await generatePopupParams(action, tabUrl);
+        const popupUrl = `${chrome.runtime.getURL(
+            'popup.html'
+        )}#opener=bg&${params}`;
+        // if spaces  window already exists
         if (spacesPopupWindowId) {
-            chrome.windows.get(
+            const window = await chrome.windows.get(
                 spacesPopupWindowId,
-                { populate: true },
-                spacesWindow => {
-                    if (!spacesWindow) return;
-
-                    // remove popup from history
-                    if (
-                        spacesWindow.tabs.length > 0 &&
-                        spacesWindow.tabs[0].url
-                    ) {
-                        chrome.history.deleteUrl({
-                            url: spacesWindow.tabs[0].url,
-                        });
-                    }
-
-                    // remove popup window
-                    chrome.windows.remove(spacesWindow.id, () => {
-                        if (chrome.runtime.lastError) {
-                            // eslint-disable-next-line no-console
-                            console.log(chrome.runtime.lastError.message);
-                        }
+                { populate: true }
+            );
+            // if window is currently focused then don't update
+            if (window.focused) {
+                // else update popupUrl and give it focus
+            } else {
+                await chrome.windows.update(spacesPopupWindowId, {
+                    focused: true,
+                });
+                if (window.tabs[0].id) {
+                    await chrome.tabs.update(window.tabs[0].id, {
+                        url: popupUrl,
                     });
                 }
-            );
+            }
+
+            // otherwise create it
+        } else {
+            // TODO(codedread): Handle multiple displays and errors.
+            const displays = await chrome.system.display.getInfo();
+            let screen = displays[0].bounds;
+
+            const window = await chrome.windows.create(
+                {
+                    type: 'popup',
+                    url: popupUrl,
+                    focused: true,
+                    height: 450,
+                    width: 310,
+                    top: screen.height - 450,
+                    left: screen.width - 310,
+                });
+            spacesPopupWindowId = window.id;
+            await chrome.storage.local.set({spacesPopupWindowId: window.id});
+        }
+    }
+
+    async function closePopupWindow() {
+        if (spacesPopupWindowId) {
+            try {
+                const spacesWindow = await chrome.windows.get(
+                    spacesPopupWindowId,
+                    { populate: true }
+                );
+                if (!spacesWindow) return;
+
+                // remove popup from history
+                if (
+                    spacesWindow.tabs.length > 0 &&
+                    spacesWindow.tabs[0].url
+                ) {
+                    await chrome.history.deleteUrl({
+                        url: spacesWindow.tabs[0].url,
+                    });
+                }
+
+                // remove popup window
+                await chrome.windows.remove(spacesWindow.id);
+            } catch (e) {
+                // eslint-disable-next-line no-console
+                console.log(e.message);
+            }
         }
     }
 
@@ -767,22 +751,20 @@ async function requestSessionPresence(sessionName) {
 
         // otherwise build a space object out of the actual window
         } else {
-            chrome.windows.get(windowId, { populate: true }, window => {
-                // if failed to load requested window
-                if (chrome.runtime.lastError) {
-                    callback(false);
-                } else {
-                    /** @type {Space} */
-                    const space = {
-                        sessionId: false,
-                        windowId: window.id,
-                        name: false,
-                        tabs: window.tabs,
-                        history: false,
-                    };
-                    callback(space);
-                }
-            });
+            try {
+                const window = await chrome.windows.get(windowId, { populate: true });
+                /** @type {Space} */
+                const space = {
+                    sessionId: false,
+                    windowId: window.id,
+                    name: false,
+                    tabs: window.tabs,
+                    history: false,
+                };
+                callback(space);
+            } catch (e) {
+                callback(false);
+            }
         }
     }
 
@@ -930,30 +912,29 @@ async function requestSessionPresence(sessionName) {
         }
     }
 
-    function handleSaveNewSession(windowId, sessionName, deleteOld, callback) {
-        chrome.windows.get(windowId, { populate: true }, async curWindow => {
-            const existingSession = await dbService.fetchSessionByName(sessionName);
+    async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) {
+        const curWindow = await chrome.windows.get(windowId, { populate: true });
+        const existingSession = await dbService.fetchSessionByName(sessionName);
 
-            // if session with same name already exist, then prompt to override the existing session
-            if (existingSession) {
-                if (!deleteOld) {
-                    console.error(
-                        `handleSaveNewSession: Session with name "${sessionName}" already exists and deleteOld was not true.`
-                    );
-                    callback(false);
-                    return;
+        // if session with same name already exist, then prompt to override the existing session
+        if (existingSession) {
+            if (!deleteOld) {
+                console.error(
+                    `handleSaveNewSession: Session with name "${sessionName}" already exists and deleteOld was not true.`
+                );
+                callback(false);
+                return;
 
-                    // if we choose to overwrite, delete the existing session
-                }
-                handleDeleteSession(existingSession.id, noop);
+                // if we choose to overwrite, delete the existing session
             }
-            spacesService.saveNewSession(
-                sessionName,
-                curWindow.tabs,
-                curWindow.id,
-                callback
-            );
-        });
+            handleDeleteSession(existingSession.id, noop);
+        }
+        spacesService.saveNewSession(
+            sessionName,
+            curWindow.tabs,
+            curWindow.id,
+            callback
+        );
     }
 
     async function handleRestoreFromBackup(space, deleteOld, callback) {
