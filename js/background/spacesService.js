@@ -59,20 +59,19 @@ export var spacesService = {
                 await spacesService.resetAllSessionHashes(sessions);
             }
 
-            chrome.windows.getAll({ populate: true }, async windows => {
-                // populate session map from database
-                spacesService.sessions = sessions;
+            const windows = await chrome.windows.getAll({ populate: true });
+            // populate session map from database
+            spacesService.sessions = sessions;
 
-                // then try to match current open windows with saved sessions
-                for (const curWindow of windows) {
-                    if (!spacesService.filterInternalWindows(curWindow)) {
-                        await spacesService.checkForSessionMatchDuringInit(curWindow);
-                    }
+            // then try to match current open windows with saved sessions
+            for (const curWindow of windows) {
+                if (!spacesService.filterInternalWindows(curWindow)) {
+                    await spacesService.checkForSessionMatchDuringInit(curWindow);
                 }
-                
-                // Initialization complete
-                spacesService.initialized = true;
-            });
+            }
+            
+            // Initialization complete
+            spacesService.initialized = true;
         } catch (error) {
             console.error('Error initializing spaces:', error);
             spacesService.initialized = false;

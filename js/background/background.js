@@ -128,13 +128,12 @@ chrome.runtime.onStartup.addListener(async () => {
         // NOTE: this is a workaround for an issue with the chrome 'restore previous session' option
         // if the spaces window is the only window open and you try to use it to open a space,
         // when that space loads, it also loads all the windows from the window that was last closed
-        chrome.windows.getAll({}, windows => {
-            if (windows.length === 1 && spacesOpenWindowId) {
-                chrome.windows.remove(spacesOpenWindowId);
-                spacesOpenWindowId = false;
-                chrome.storage.local.remove('spacesOpenWindowId');
-            }
-        });
+        const windows = await chrome.windows.getAll({});
+        if (windows.length === 1 && spacesOpenWindowId) {
+            await chrome.windows.remove(spacesOpenWindowId);
+            spacesOpenWindowId = false;
+            await chrome.storage.local.remove('spacesOpenWindowId');
+        }
     });
     // don't need this listener as the tabUpdated listener also fires when a new window is created
     // chrome.windows.onCreated.addListener(function (window) {
