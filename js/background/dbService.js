@@ -4,64 +4,64 @@ import { db, Server } from './db.js';
 
 /** @typedef {import('./common.js').Space} Space */
 
-// eslint-disable-next-line no-var
-export var dbService = {
-    DB_SERVER: 'spaces',
-    DB_VERSION: '1',
-    DB_SESSIONS: 'ttSessions',
+/**
+ * @typedef Session
+ * @property {number} id Auto-generated indexedDb object id
+ * @property {number} sessionHash A hash formed from the combined urls in the session window
+ * @property {string} name The saved name of the session
+ * @property {Array} tabs An array of chrome tab objects (often taken from the chrome window obj)
+ * @property {Array} history An array of chrome tab objects that have been removed from the session
+ * @property {Date} lastAccess Timestamp that gets updated with every window focus
+ */
 
+/**
+ * Returns database schema definition.
+ * @returns {Object} Database schema configuration object
+ */
+function getSchema() {
+    return {
+        ttSessions: {
+            key: {
+                keyPath: 'id',
+                autoIncrement: true,
+            },
+            indexes: {
+                id: {},
+            },
+        },
+    };
+}
+
+// Database constants
+const DB_SERVER = 'spaces';
+const DB_VERSION = '1';
+const DB_SESSIONS = 'ttSessions';
+
+class DbService {
     /**
      * Opens and returns a database connection.
      * @returns {Promise<Server>} Promise that resolves to database connection
      */
     getDb() {
         return db.open({
-            server: dbService.DB_SERVER,
-            version: dbService.DB_VERSION,
-            schema: dbService.getSchema(),
+            server: DB_SERVER,
+            version: DB_VERSION,
+            schema: getSchema(),
         });
-    },
-
-    /**
-     * @typedef Session
-     * @property {number} id Auto-generated indexedDb object id
-     * @property {number} sessionHash A hash formed from the combined urls in the session window
-     * @property {string} name The saved name of the session
-     * @property {Array} tabs An array of chrome tab objects (often taken from the chrome window obj)
-     * @property {Array} history An array of chrome tab objects that have been removed from the session
-     * @property {Date} lastAccess Timestamp that gets updated with every window focus
-     */
-
-    /**
-     * Returns database schema definition.
-     * @returns {Object} Database schema configuration object
-     */
-    getSchema() {
-        return {
-            ttSessions: {
-                key: {
-                    keyPath: 'id',
-                    autoIncrement: true,
-                },
-                indexes: {
-                    id: {},
-                },
-            },
-        };
-    },
+    }
 
     /**
      * Fetches all sessions from the database.
      * @returns {Promise<Array<Session>>} Promise that resolves to array of session objects
      */
     _fetchAllSessions() {
-        return dbService.getDb().then(s => {
+        return this.getDb().then(s => {
             return s
-                .query(dbService.DB_SESSIONS)
+                .query(DB_SESSIONS)
                 .all()
                 .execute();
         });
-    },
+    }
 
     /**
      * Fetches a session by ID from the database.
@@ -69,9 +69,9 @@ export var dbService = {
      * @returns {Promise<Session|null>} Promise that resolves to session object or null if not found
      */
     _fetchSessionById(id) {
-        return dbService.getDb().then(s => {
+        return this.getDb().then(s => {
             return s
-                .query(dbService.DB_SESSIONS, 'id')
+                .query(DB_SESSIONS, 'id')
                 .only(id)
                 .distinct()
                 .desc()
@@ -80,7 +80,7 @@ export var dbService = {
                     return results.length > 0 ? results[0] : null;
                 });
         });
-    },
+    }
 
     /**
      * Fetches all sessions from the database.
@@ -88,13 +88,13 @@ export var dbService = {
      */
     async fetchAllSessions() {
         try {
-            const sessions = await dbService._fetchAllSessions();
+            const sessions = await this._fetchAllSessions();
             return sessions;
         } catch (error) {
             console.error('Error fetching all sessions:', error);
             return [];
         }
-    },
+    }
 
     /**
      * Fetches a session by ID.
@@ -104,13 +104,13 @@ export var dbService = {
     async fetchSessionById(id) {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
         try {
-            const session = await dbService._fetchSessionById(_id);
+            const session = await this._fetchSessionById(_id);
             return session;
         } catch (error) {
             console.error('Error fetching session by ID:', error);
             return null;
         }
-    },
+    }
 
     /**
      * Fetches all session names.
@@ -118,13 +118,13 @@ export var dbService = {
      */
     async fetchSessionNames() {
         try {
-            const sessions = await dbService._fetchAllSessions();
+            const sessions = await this._fetchAllSessions();
             return sessions.map(session => session.name);
         } catch (error) {
             console.error('Error fetching session names:', error);
             return [];
         }
-    },
+    }
 
     /**
      * Fetches a session by window ID.
@@ -133,14 +133,14 @@ export var dbService = {
      */
     async fetchSessionByWindowId(windowId) {
         try {
-            const sessions = await dbService._fetchAllSessions();
+            const sessions = await this._fetchAllSessions();
             const matchedSession = sessions.find(session => session.windowId === windowId);
             return matchedSession || false;
         } catch (error) {
             console.error('Error fetching session by window ID:', error);
             return false;
         }
-    },
+    }
 
     /**
      * Fetches a session by name.
@@ -149,7 +149,7 @@ export var dbService = {
      */
     async fetchSessionByName(sessionName) {
         try {
-            const sessions = await dbService._fetchAllSessions();
+            const sessions = await this._fetchAllSessions();
             let matchIndex;
             const matchFound = sessions.some((session, index) => {
                 if (session.name?.toLowerCase() === sessionName.toLowerCase()) {
@@ -164,7 +164,7 @@ export var dbService = {
             console.error('Error fetching session by name:', error);
             return false;
         }
-    },
+    }
 
     /**
      * Creates a new session in the database.
@@ -176,14 +176,14 @@ export var dbService = {
         const { id, ..._session } = session;
 
         try {
-            const s = await dbService.getDb();
-            const result = await s.add(dbService.DB_SESSIONS, _session);
+            const s = await this.getDb();
+            const result = await s.add(DB_SESSIONS, _session);
             return result.length > 0 ? result[0] : null;
         } catch (error) {
             console.error('Error creating session:', error);
             return null;
         }
-    },
+    }
 
     /**
      * Updates an existing session in the database.
@@ -197,14 +197,14 @@ export var dbService = {
         }
 
         try {
-            const s = await dbService.getDb();
-            const result = await s.update(dbService.DB_SESSIONS, session);
+            const s = await this.getDb();
+            const result = await s.update(DB_SESSIONS, session);
             return result.length > 0 ? result[0] : null;
         } catch (error) {
             console.error('Error updating session:', error);
             return null;
         }
-    },
+    }
 
     /**
      * Removes a session from the database.
@@ -215,12 +215,15 @@ export var dbService = {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
 
         try {
-            const s = await dbService.getDb();
-            await s.remove(dbService.DB_SESSIONS, _id);
+            const s = await this.getDb();
+            await s.remove(DB_SESSIONS, _id);
             return true;
         } catch (error) {
             console.error('Error removing session:', error);
             return false;
         }
-    },
-};
+    }
+}
+
+// Export an instantiated object
+export const dbService = new DbService();
