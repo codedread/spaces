@@ -743,8 +743,22 @@ class SpacesService {
 
 // Module-level helper functions.
 
-// NOTE: if ever changing this function, then we'll need to update all
-// saved sessionHashes so that they match next time, using: resetAllSessionHashes()
+/**
+ * Cleans and normalizes a URL by removing query parameters, fragments, and filtering out
+ * internal Chrome extension URLs and new tab pages. Also handles special cases like
+ * 'The Great Suspender' extension URLs.
+ * 
+ * NOTE: if ever changing this function, then we'll need to update all
+ * saved sessionHashes so that they match next time, using: resetAllSessionHashes()
+ * 
+ * @param {string} url - The URL to clean and normalize
+ * @returns {string} The cleaned URL, or empty string if URL should be ignored
+ * 
+ * @example
+ * cleanUrl('https://example.com/page?param=value#section') // returns 'https://example.com/page'
+ * cleanUrl('chrome://newtab/') // returns ''
+ * cleanUrl('chrome-extension://abc123/page.html') // returns ''
+ */
 function cleanUrl(url) {
     if (!url) {
         return '';
@@ -786,6 +800,21 @@ function cleanUrl(url) {
     return processedUrl;
 }
 
+/**
+ * Generates a unique hash for a browser session based on the URLs of its tabs.
+ * This hash is used to match existing sessions when windows are reopened after Chrome restart.
+ * The hash is created by concatenating all cleaned tab URLs and applying a 32-bit hash algorithm.
+ * 
+ * @param {Array<Object>} tabs - Array of tab objects, each containing a 'url' property
+ * @returns {number} A positive 32-bit integer hash representing the session
+ * 
+ * @example
+ * const tabs = [
+ *   { url: 'https://example.com' },
+ *   { url: 'https://google.com' }
+ * ];
+ * generateSessionHash(tabs) // returns something like 1234567890
+ */
 function generateSessionHash(tabs) {
     const text = tabs.reduce((prevStr, tab) => {
         return prevStr + cleanUrl(tab.url);
