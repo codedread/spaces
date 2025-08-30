@@ -15,12 +15,44 @@ const transactionModes = {
 const hasOwn = Object.prototype.hasOwnProperty;
 const defaultMapper = (value) => value;
 
-const Server = function(db, name) {
-    const that = this;
-    let closed = false;
+class Server {
+    /** @type {IDBDatabase} */
+    db;
 
-    this.add = function(table) {
-        if (closed) {
+    /** @type {string} */
+    name;
+
+    /** @type {boolean} */
+    closed;
+
+    /**
+     * @param {IDBDatabase} db 
+     * @param {string} name 
+     */
+    constructor(db, name) {
+        this.db = db;
+        this.name = name;
+        this.closed = false;
+
+        for (var i = 0, il = db.objectStoreNames.length; i < il; i++) {
+            (function(storeName) {
+                this[storeName] = {};
+                for (var methodName in this) {
+                    if (hasOwn.call(this, methodName) || methodName === 'close') {
+                        continue;
+                    }
+                    this[storeName][methodName] = ((methodName) => {
+                        return (...args) => {
+                            return this[methodName].apply(this, [storeName, ...args]);
+                        };
+                    })(methodName);
+                }
+            }).bind(this)(db.objectStoreNames[i]);
+        }
+    }
+
+    add(table) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
 
@@ -39,7 +71,7 @@ const Server = function(db, name) {
             }
         }
 
-        var transaction = db.transaction(table, transactionModes.readwrite),
+        var transaction = this.db.transaction(table, transactionModes.readwrite),
             store = transaction.objectStore(table);
 
         return new Promise((resolve, reject) => {
@@ -66,8 +98,8 @@ const Server = function(db, name) {
                 };
             });
 
-            transaction.oncomplete = function() {
-                resolve(records, that);
+            transaction.oncomplete = () => {
+                resolve(records, this);
             };
             transaction.onerror = function(e) {
                 reject(e);
@@ -76,10 +108,10 @@ const Server = function(db, name) {
                 reject(e);
             };
         });
-    };
+    }
 
-    this.update = function(table) {
-        if (closed) {
+    update(table) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
 
@@ -88,7 +120,7 @@ const Server = function(db, name) {
             records[i] = arguments[i + 1];
         }
 
-        var transaction = db.transaction(table, transactionModes.readwrite),
+        var transaction = this.db.transaction(table, transactionModes.readwrite),
             store = transaction.objectStore(table),
             keyPath = store.keyPath;
 
@@ -109,8 +141,8 @@ const Server = function(db, name) {
                 };
             });
 
-            transaction.oncomplete = function() {
-                resolve(records, that);
+            transaction.oncomplete = () => {
+                resolve(records, this);
             };
             transaction.onerror = function(e) {
                 reject(e);
@@ -119,13 +151,13 @@ const Server = function(db, name) {
                 reject(e);
             };
         });
-    };
+    }
 
-    this.remove = function(table, key) {
-        if (closed) {
+    remove(table, key) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
-        var transaction = db.transaction(table, transactionModes.readwrite),
+        var transaction = this.db.transaction(table, transactionModes.readwrite),
             store = transaction.objectStore(table);
 
         return new Promise((resolve, reject) => {
@@ -137,13 +169,13 @@ const Server = function(db, name) {
                 reject(e);
             };
         });
-    };
+    }
 
-    this.clear = function(table) {
-        if (closed) {
+    clear(table) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
-        var transaction = db.transaction(table, transactionModes.readwrite),
+        var transaction = this.db.transaction(table, transactionModes.readwrite),
             store = transaction.objectStore(table);
 
         var req = store.clear();
@@ -155,22 +187,22 @@ const Server = function(db, name) {
                 reject(e);
             };
         });
-    };
+    }
 
-    this.close = function() {
-        if (closed) {
+    close() {
+        if (this.closed) {
             throw 'Database has been closed';
         }
-        db.close();
-        closed = true;
-        delete dbCache[name];
-    };
+        this.db.close();
+        this.closed = true;
+        delete dbCache[this.name];
+    }
 
-    this.get = function(table, id) {
-        if (closed) {
+    get(table, id) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
-        var transaction = db.transaction(table),
+        var transaction = this.db.transaction(table),
             store = transaction.objectStore(table);
 
         var req = store.get(id);
@@ -182,34 +214,15 @@ const Server = function(db, name) {
                 reject(e);
             };
         });
-    };
+    }
 
-    this.query = function(table, index) {
-        if (closed) {
+    query(table, index) {
+        if (this.closed) {
             throw 'Database has been closed';
         }
-        return new IndexQuery(table, db, index);
-    };
-
-    for (var i = 0, il = db.objectStoreNames.length; i < il; i++) {
-        (function(storeName) {
-            that[storeName] = {};
-            for (var i in that) {
-                if (!hasOwn.call(that, i) || i === 'close') {
-                    continue;
-                }
-                that[storeName][i] = (function(i) {
-                    return function() {
-                        var args = [storeName].concat(
-                            [].slice.call(arguments, 0)
-                        );
-                        return that[i].apply(that, args);
-                    };
-                })(i);
-            }
-        })(db.objectStoreNames[i]);
+        return new IndexQuery(table, this.db, index);
     }
-};
+}
 
 var IndexQuery = function(table, db, indexName) {
     var that = this;
