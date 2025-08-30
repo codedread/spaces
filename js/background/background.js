@@ -404,17 +404,16 @@ async function processMessage(request, sender, sendResponse) {
         case 'moveTabToNewSession':
             tabId = cleanParameter(request.tabId);
             if (request.sessionName && tabId) {
-                await handleMoveTabToNewSession(
+                const result = await handleMoveTabToNewSession(
                     tabId,
-                    request.sessionName,
-                    result => {
-                        if (result)
-                            updateSpacesWindow('moveTabToNewSession');
-
-                        // close the requesting tab (should be tab.html)
-                        closePopupWindow();
-                    }
+                    request.sessionName
                 );
+                if (result) {
+                    updateSpacesWindow('moveTabToNewSession');
+                }
+
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -1063,11 +1062,17 @@ async function handleAddLinkToNewSession(url, sessionName) {
     }
 }
 
-async function handleMoveTabToNewSession(tabId, sessionName, callback) {
+/**
+ * @param {number} tabId - The ID of the tab to move to the new session
+ * @param {string} sessionName - The name for the new session
+ * @returns {Promise<Session|null>} Promise that resolves to:
+ *   - Session object if the session was successfully created
+ *   - null if a session with that name already exists or creation failed
+ */
+async function handleMoveTabToNewSession(tabId, sessionName) {
     const tab = await requestTabDetail(tabId);
     if (!tab) {
-        callback(false);
-        return;
+        return null;
     }
 
     const session = await dbService.fetchSessionByName(sessionName);
@@ -1075,7 +1080,7 @@ async function handleMoveTabToNewSession(tabId, sessionName, callback) {
     // if we found a session matching this name then return as an error as we are
     // supposed to be creating a new session with this name
     if (session) {
-        callback(false);
+        return null;
 
         //  else create a new session with this name containing this tab
     } else {
@@ -1083,12 +1088,11 @@ async function handleMoveTabToNewSession(tabId, sessionName, callback) {
         chrome.tabs.remove(tab.id);
 
         // save session to database
-        const result = await spacesService.saveNewSession(
+        return spacesService.saveNewSession(
             sessionName,
             [tab],
             false
         );
-        callback(result);
     }
 }
 
