@@ -327,7 +327,7 @@ chrome.runtime.onStartup.addListener(async () => {
             case 'requestTabDetail':
                 tabId = _cleanParameter(request.tabId);
                 if (tabId) {
-                    requestTabDetail(tabId, tab => {
+                    requestTabDetail(tabId).then(tab => {
                         if (tab) {
                             sendResponse(tab);
                         } else {
@@ -719,16 +719,23 @@ async function requestSessionPresence(sessionName) {
     return { exists: !!session, isOpen: !!session && !!session.windowId };
 }
 
-    function requestTabDetail(tabId, callback) {
-        chrome.tabs.get(tabId, callback);
+/**
+ * @param {number} tabId - The ID of the tab to retrieve details for
+ * @returns {Promise<chrome.tabs.Tab|null>} A Promise that resolves to the tab object or null.
+ */
+async function requestTabDetail(tabId) {
+    try {
+        return await chrome.tabs.get(tabId);
+    } catch (error) {
+        return null;
     }
+}
 
-    function requestCurrentSpace(callback) {
-        console.log(`codedread: requestCurrentSpace() called`);
-        chrome.windows.getCurrent(window => {
-            requestSpaceFromWindowId(window.id, callback);
-        });
-    }
+function requestCurrentSpace(callback) {
+    chrome.windows.getCurrent(window => {
+        requestSpaceFromWindowId(window.id, callback);
+    });
+}
 
     // returns a 'space' object which is essentially the same as a session object
     // except that includes space.sessionId (session.id) and space.windowId
@@ -1025,29 +1032,33 @@ async function requestSessionPresence(sessionName) {
         }
     }
 
-    function handleMoveTabToNewSession(tabId, sessionName, callback) {
-        requestTabDetail(tabId, async tab => {
-            const session = await dbService.fetchSessionByName(sessionName);
+    async function handleMoveTabToNewSession(tabId, sessionName, callback) {
+        const tab = await requestTabDetail(tabId);
+        if (!tab) {
+            callback(false);
+            return;
+        }
 
-            // if we found a session matching this name then return as an error as we are
-            // supposed to be creating a new session with this name
-            if (session) {
-                callback(false);
+        const session = await dbService.fetchSessionByName(sessionName);
 
-                //  else create a new session with this name containing this tab
-            } else {
-                // remove tab from current window (should generate window events)
-                chrome.tabs.remove(tab.id);
+        // if we found a session matching this name then return as an error as we are
+        // supposed to be creating a new session with this name
+        if (session) {
+            callback(false);
 
-                // save session to database
-                spacesService.saveNewSession(
-                    sessionName,
-                    [tab],
-                    false,
-                    callback
-                );
-            }
-        });
+            //  else create a new session with this name containing this tab
+        } else {
+            // remove tab from current window (should generate window events)
+            chrome.tabs.remove(tab.id);
+
+            // save session to database
+            spacesService.saveNewSession(
+                sessionName,
+                [tab],
+                false,
+                callback
+            );
+        }
     }
 
     async function handleAddLinkToSession(url, sessionId, callback) {
@@ -1082,41 +1093,48 @@ async function requestSessionPresence(sessionName) {
         callback(true);
     }
 
-    function handleMoveTabToSession(tabId, sessionId, callback) {
-        requestTabDetail(tabId, async tab => {
-            const session = await dbService.fetchSessionById(sessionId);
-            const newTabs = [tab];
+    async function handleMoveTabToSession(tabId, sessionId, callback) {
+        const tab = await requestTabDetail(tabId);
+        if (!tab) {
+            callback(false);
+            return;
+        }
 
-            // if we have not found a session matching this name then return as an error as we are
-            // supposed to be adding the tab to an existing session
-            if (!session) {
-                callback(false);
-            } else {
-                // if session is currently open then move it directly
-                if (session.windowId) {
-                    moveTabToWindow(tab, session.windowId, callback);
-                    return;
-                }
+        const session = await dbService.fetchSessionById(sessionId);
+        const newTabs = [tab];
 
-                // else add tab to saved session in database
-                // remove tab from current window
-                chrome.tabs.remove(tab.id);
-
-                // update session in db
-                session.tabs = session.tabs.concat(newTabs);
-                spacesService.updateSessionTabs(
-                    session.id,
-                    session.tabs,
-                    callback
-                );
+        // if we have not found a session matching this name then return as an error as we are
+        // supposed to be adding the tab to an existing session
+        if (!session) {
+            callback(false);
+        } else {
+            // if session is currently open then move it directly
+            if (session.windowId) {
+                moveTabToWindow(tab, session.windowId, callback);
+                return;
             }
-        });
+
+            // else add tab to saved session in database
+            // remove tab from current window
+            chrome.tabs.remove(tab.id);
+
+            // update session in db
+            session.tabs = session.tabs.concat(newTabs);
+            spacesService.updateSessionTabs(
+                session.id,
+                session.tabs,
+                callback
+            );
+        }
     }
 
-    function handleMoveTabToWindow(tabId, windowId, callback) {
-        requestTabDetail(tabId, tab => {
-            moveTabToWindow(tab, windowId, callback);
-        });
+    async function handleMoveTabToWindow(tabId, windowId, callback) {
+        const tab = await requestTabDetail(tabId);
+        if (!tab) {
+            callback(false);
+            return;
+        }
+        moveTabToWindow(tab, windowId, callback);
     }
 
 function moveTabToWindow(tab, windowId, callback) {
