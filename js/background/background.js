@@ -559,9 +559,7 @@ chrome.runtime.onStartup.addListener(async () => {
 
     async function generatePopupParams(action, tabUrl) {
         // get currently highlighted tab
-        const tabs = await new Promise(resolve => {
-            chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-        });
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs.length === 0) return '';
 
         const activeTab = tabs[0];
@@ -874,9 +872,8 @@ async function requestSessionPresence(sessionName) {
                     chrome.tabs.create({windowId: newWindow.id, url: curTab.url, pinned: curTab.pinned, active: false});
                 });
 
-                chrome.tabs.query({windowId: newWindow.id, index: 0}, function (tabs) {
-                    chrome.tabs.remove(tabs[0].id);
-                }); */
+                const tabs = await chrome.tabs.query({windowId: newWindow.id, index: 0});
+                chrome.tabs.remove(tabs[0].id); */
         }
     }
 
@@ -1135,4 +1132,3 @@ function moveTabToWindow(tab, windowId, callback) {
 
 console.log(`Initializing spacesService...`);
 spacesService.initialiseSpaces();
-spacesService.initialiseTabHistory();

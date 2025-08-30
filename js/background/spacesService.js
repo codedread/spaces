@@ -33,7 +33,8 @@ class SpacesService {
             return;
         }
         
-        this.initializationPromise = this.initialiseSpaces().then(() => {
+        this.initializationPromise = this.initialiseSpaces().then(async () => {
+            await this._initialiseTabHistory();
             this.initialized = true;
             this.initializationPromise = null;
         });
@@ -115,13 +116,15 @@ class SpacesService {
         }
     }
 
-    // record each tab's id and url so we can add history items when tabs are removed
-    initialiseTabHistory() {
-        chrome.tabs.query({}, tabs => {
-            tabs.forEach(async tab => {
-                this.tabHistoryUrlMap[tab.id] = tab.url;
-            });
-        });
+    /**
+     * Record each tab's id and url so we can add history items when tabs are removed
+     * @private
+     */
+    async _initialiseTabHistory() {
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+            this.tabHistoryUrlMap[tab.id] = tab.url;
+        }
     }
 
     filterInternalWindows(curWindow) {
