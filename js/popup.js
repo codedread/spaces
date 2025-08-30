@@ -3,221 +3,221 @@
 import { spacesRenderer } from './spacesRenderer.js';
 import { utils } from './utils.js';
 
-    const UNSAVED_SESSION = '(unnamed window)';
-    const NO_HOTKEY = 'no hotkey set';
+const UNSAVED_SESSION = '(unnamed window)';
+const NO_HOTKEY = 'no hotkey set';
 
-    const nodes = {};
-    let globalCurrentSpace;
-    let globalTabId;
-    let globalUrl;
-    let globalWindowId;
-    let globalSessionName;
+const nodes = {};
+let globalCurrentSpace;
+let globalTabId;
+let globalUrl;
+let globalWindowId;
+let globalSessionName;
 
-    /*
-     * POPUP INIT
-     */
+/*
+    * POPUP INIT
+    */
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        const url = utils.getHashVariable('url', window.location.href);
-        globalUrl = url !== '' ? decodeURIComponent(url) : false;
-        const currentWindow = await chrome.windows.getCurrent({ populate: true });
-        const windowId = currentWindow.id;
-        globalWindowId = windowId !== '' ? windowId : false;
-        globalTabId = utils.getHashVariable('tabId', window.location.href);
-        const sessionName = utils.getHashVariable(
-            'sessionName',
-            window.location.href
-        );
-        globalSessionName =
-            sessionName && sessionName !== 'false' ? sessionName : false;
-        const action = utils.getHashVariable('action', window.location.href);
+document.addEventListener('DOMContentLoaded', async () => {
+    const url = utils.getHashVariable('url', window.location.href);
+    globalUrl = url !== '' ? decodeURIComponent(url) : false;
+    const currentWindow = await chrome.windows.getCurrent({ populate: true });
+    const windowId = currentWindow.id;
+    globalWindowId = windowId !== '' ? windowId : false;
+    globalTabId = utils.getHashVariable('tabId', window.location.href);
+    const sessionName = utils.getHashVariable(
+        'sessionName',
+        window.location.href
+    );
+    globalSessionName =
+        sessionName && sessionName !== 'false' ? sessionName : false;
+    const action = utils.getHashVariable('action', window.location.href);
 
-        const requestSpacePromise = globalWindowId
-            ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
-            : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
+    const requestSpacePromise = globalWindowId
+        ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
+        : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
 
-        requestSpacePromise.then(space => {
-            globalCurrentSpace = space;
-            renderCommon();
-            routeView(action);
-        });
+    requestSpacePromise.then(space => {
+        globalCurrentSpace = space;
+        renderCommon();
+        routeView(action);
     });
+});
 
-    function routeView(action) {
-        if (action === 'move') {
-            renderMoveCard();
-        } else if (action === 'switch') {
-            renderSwitchCard();
-        } else {
-            renderMainCard();
-        }
+function routeView(action) {
+    if (action === 'move') {
+        renderMoveCard();
+    } else if (action === 'switch') {
+        renderSwitchCard();
+    } else {
+        renderMainCard();
     }
+}
 
-    /*
-     * COMMON
-     */
+/*
+    * COMMON
+    */
 
-    function renderCommon() {
-        document.getElementById(
-            'activeSpaceTitle'
-        ).value = globalCurrentSpace.name
-            ? globalCurrentSpace.name
-            : UNSAVED_SESSION;
+function renderCommon() {
+    document.getElementById(
+        'activeSpaceTitle'
+    ).value = globalCurrentSpace.name
+        ? globalCurrentSpace.name
+        : UNSAVED_SESSION;
 
-        document.querySelector('body').onkeyup = e => {
-            // listen for escape key
-            if (e.keyCode === 27) {
-                handleCloseAction();
-                // } else if (e.keyCode === 13) {
-                //     handleNameSave();
-            }
-        };
-        document.getElementById('spaceEdit').addEventListener('click', () => {
+    document.querySelector('body').onkeyup = e => {
+        // listen for escape key
+        if (e.keyCode === 27) {
+            handleCloseAction();
+            // } else if (e.keyCode === 13) {
+            //     handleNameSave();
+        }
+    };
+    document.getElementById('spaceEdit').addEventListener('click', () => {
+        handleNameEdit();
+    });
+    document
+        .getElementById('activeSpaceTitle')
+        .addEventListener('focus', () => {
             handleNameEdit();
         });
-        document
-            .getElementById('activeSpaceTitle')
-            .addEventListener('focus', () => {
-                handleNameEdit();
-            });
-        document.getElementById('activeSpaceTitle').onkeyup = e => {
-            // listen for enter key
-            if (e.keyCode === 13) {
-                document.getElementById('activeSpaceTitle').blur();
-            }
-        };
-        document
-            .getElementById('activeSpaceTitle')
-            .addEventListener('blur', () => {
-                handleNameSave();
-            });
-    }
-
-    function handleCloseAction() {
-        const opener = utils.getHashVariable('opener', window.location.href);
-        if (opener && opener === 'bg') {
-            chrome.runtime.sendMessage({
-                action: 'requestClose',
-            });
-        } else {
-            window.close();
+    document.getElementById('activeSpaceTitle').onkeyup = e => {
+        // listen for enter key
+        if (e.keyCode === 13) {
+            document.getElementById('activeSpaceTitle').blur();
         }
-    }
-
-    /*
-     * MAIN POPUP VIEW
-     */
-
-    async function renderMainCard() {
-        const hotkeys = await requestHotkeys();
-            document.querySelector(
-                '#switcherLink .hotkey'
-            ).innerHTML = hotkeys.switchCode ? hotkeys.switchCode : NO_HOTKEY;
-            document.querySelector(
-                '#moverLink .hotkey'
-            ).innerHTML = hotkeys.moveCode ? hotkeys.moveCode : NO_HOTKEY;
-
-        const hotkeyEls = document.querySelectorAll('.hotkey');
-        for (let i = 0; i < hotkeyEls.length; i += 1) {
-            hotkeyEls[i].addEventListener('click', () => {
-                chrome.runtime.sendMessage({
-                    action: 'requestShowKeyboardShortcuts',
-                });
-                window.close();
-            });
-        }
-
-        document
-            .querySelector('#allSpacesLink .optionText')
-            .addEventListener('click', () => {
-                chrome.runtime.sendMessage({
-                    action: 'requestShowSpaces',
-                });
-                window.close();
-            });
-        document
-            .querySelector('#switcherLink .optionText')
-            .addEventListener('click', async () => {
-                const params = await chrome.runtime.sendMessage({'action': 'switch'});
-                if (!params) return;
-                window.location.hash = params;
-                window.location.reload();
-                renderSwitchCard();
-            });
-        document
-            .querySelector('#moverLink .optionText')
-            .addEventListener('click', async () => {
-                const params = await chrome.runtime.sendMessage({'action': 'generatePopupParams'});
-                if (!params) return;
-                window.location.hash = params;
-                window.location.reload();
-                // renderMoveCard()
-            });
-    }
-
-    async function requestHotkeys() {
-        const commands = await chrome.commands.getAll();
-        let switchStr;
-        let moveStr;
-        let spacesStr;
-
-        commands.forEach(command => {
-            if (command.name === 'spaces-switch') {
-                switchStr = command.shortcut;
-            } else if (command.name === 'spaces-move') {
-                moveStr = command.shortcut;
-            } else if (command.name === 'spaces-open') {
-                spacesStr = command.shortcut;
-            }
+    };
+    document
+        .getElementById('activeSpaceTitle')
+        .addEventListener('blur', () => {
+            handleNameSave();
         });
+}
 
-        return {
-            switchCode: switchStr,
-            moveCode: moveStr,
-            spacesCode: spacesStr,
-        };
+function handleCloseAction() {
+    const opener = utils.getHashVariable('opener', window.location.href);
+    if (opener && opener === 'bg') {
+        chrome.runtime.sendMessage({
+            action: 'requestClose',
+        });
+    } else {
+        window.close();
     }
+}
 
-    function handleNameEdit() {
-        const inputEl = document.getElementById('activeSpaceTitle');
-        inputEl.focus();
-        if (inputEl.value === UNSAVED_SESSION) {
-            inputEl.value = '';
-        }
-    }
+/*
+    * MAIN POPUP VIEW
+    */
 
-    async function handleNameSave() {
-        const inputEl = document.getElementById('activeSpaceTitle');
-        const newName = inputEl.value;
+async function renderMainCard() {
+    const hotkeys = await requestHotkeys();
+        document.querySelector(
+            '#switcherLink .hotkey'
+        ).innerHTML = hotkeys.switchCode ? hotkeys.switchCode : NO_HOTKEY;
+        document.querySelector(
+            '#moverLink .hotkey'
+        ).innerHTML = hotkeys.moveCode ? hotkeys.moveCode : NO_HOTKEY;
 
-        if (
-            newName === UNSAVED_SESSION ||
-            newName === globalCurrentSpace.name
-        ) {
-            return;
-        }
-
-        const canOverwrite = await utils.checkSessionOverwrite(newName);
-        if (!canOverwrite) {
-            return;
-        }
-
-        if (globalCurrentSpace.sessionId) {
+    const hotkeyEls = document.querySelectorAll('.hotkey');
+    for (let i = 0; i < hotkeyEls.length; i += 1) {
+        hotkeyEls[i].addEventListener('click', () => {
             chrome.runtime.sendMessage({
-                action: 'updateSessionName',
-                deleteOld: true,
-                sessionName: newName,
-                sessionId: globalCurrentSpace.sessionId,
+                action: 'requestShowKeyboardShortcuts',
             });
-        } else {
-            chrome.runtime.sendMessage({
-                action: 'saveNewSession',
-                deleteOld: true,
-                sessionName: newName,
-                windowId: globalCurrentSpace.windowId,
-            });
-        }
+            window.close();
+        });
     }
+
+    document
+        .querySelector('#allSpacesLink .optionText')
+        .addEventListener('click', () => {
+            chrome.runtime.sendMessage({
+                action: 'requestShowSpaces',
+            });
+            window.close();
+        });
+    document
+        .querySelector('#switcherLink .optionText')
+        .addEventListener('click', async () => {
+            const params = await chrome.runtime.sendMessage({'action': 'switch'});
+            if (!params) return;
+            window.location.hash = params;
+            window.location.reload();
+            renderSwitchCard();
+        });
+    document
+        .querySelector('#moverLink .optionText')
+        .addEventListener('click', async () => {
+            const params = await chrome.runtime.sendMessage({'action': 'generatePopupParams'});
+            if (!params) return;
+            window.location.hash = params;
+            window.location.reload();
+            // renderMoveCard()
+        });
+}
+
+async function requestHotkeys() {
+    const commands = await chrome.commands.getAll();
+    let switchStr;
+    let moveStr;
+    let spacesStr;
+
+    commands.forEach(command => {
+        if (command.name === 'spaces-switch') {
+            switchStr = command.shortcut;
+        } else if (command.name === 'spaces-move') {
+            moveStr = command.shortcut;
+        } else if (command.name === 'spaces-open') {
+            spacesStr = command.shortcut;
+        }
+    });
+
+    return {
+        switchCode: switchStr,
+        moveCode: moveStr,
+        spacesCode: spacesStr,
+    };
+}
+
+function handleNameEdit() {
+    const inputEl = document.getElementById('activeSpaceTitle');
+    inputEl.focus();
+    if (inputEl.value === UNSAVED_SESSION) {
+        inputEl.value = '';
+    }
+}
+
+async function handleNameSave() {
+    const inputEl = document.getElementById('activeSpaceTitle');
+    const newName = inputEl.value;
+
+    if (
+        newName === UNSAVED_SESSION ||
+        newName === globalCurrentSpace.name
+    ) {
+        return;
+    }
+
+    const canOverwrite = await utils.checkSessionOverwrite(newName);
+    if (!canOverwrite) {
+        return;
+    }
+
+    if (globalCurrentSpace.sessionId) {
+        chrome.runtime.sendMessage({
+            action: 'updateSessionName',
+            deleteOld: true,
+            sessionName: newName,
+            sessionId: globalCurrentSpace.sessionId,
+        });
+    } else {
+        chrome.runtime.sendMessage({
+            action: 'saveNewSession',
+            deleteOld: true,
+            sessionName: newName,
+            windowId: globalCurrentSpace.windowId,
+        });
+    }
+}
 
 /*
  * SWITCHER VIEW
@@ -246,98 +246,98 @@ async function renderSwitchCard() {
     });
 }
 
-    function getSelectedSpace() {
-        return document.querySelector('.space.selected');
-    }
+function getSelectedSpace() {
+    return document.querySelector('.space.selected');
+}
 
-    async function handleSwitchAction(selectedSpaceEl) {
-        await chrome.runtime.sendMessage({
-            action: 'switchToSpace',
-            sessionId: selectedSpaceEl.getAttribute('data-sessionId'),
-            windowId: selectedSpaceEl.getAttribute('data-windowId'),
-        });
-        // Wait for the response from the background message handler before
-        // closing the window.
-        window.close();
-    }
+async function handleSwitchAction(selectedSpaceEl) {
+    await chrome.runtime.sendMessage({
+        action: 'switchToSpace',
+        sessionId: selectedSpaceEl.getAttribute('data-sessionId'),
+        windowId: selectedSpaceEl.getAttribute('data-windowId'),
+    });
+    // Wait for the response from the background message handler before
+    // closing the window.
+    window.close();
+}
 
-    /*
-     * MOVE VIEW
-     */
+/*
+    * MOVE VIEW
+    */
 
-    async function renderMoveCard() {
-        document.getElementById(
-            'popupContainer'
-        ).innerHTML = document.getElementById('moveTemplate').innerHTML;
+async function renderMoveCard() {
+    document.getElementById(
+        'popupContainer'
+    ).innerHTML = document.getElementById('moveTemplate').innerHTML;
 
-        // initialise global handles to key elements (singletons)
-        // nodes.home = document.getElementById('spacesHome');
-        nodes.body = document.querySelector('body');
-        nodes.spaceEditButton = document.getElementById('spaceEdit');
-        nodes.moveForm = document.getElementById('spaceSelectForm');
-        nodes.moveInput = document.getElementById('sessionsInput');
-        nodes.activeSpaceTitle = document.getElementById('activeSpaceTitle');
-        nodes.activeTabTitle = document.getElementById('activeTabTitle');
-        nodes.activeTabFavicon = document.getElementById('activeTabFavicon');
-        nodes.okButton = document.getElementById('moveBtn');
-        nodes.cancelButton = document.getElementById('cancelBtn');
+    // initialise global handles to key elements (singletons)
+    // nodes.home = document.getElementById('spacesHome');
+    nodes.body = document.querySelector('body');
+    nodes.spaceEditButton = document.getElementById('spaceEdit');
+    nodes.moveForm = document.getElementById('spaceSelectForm');
+    nodes.moveInput = document.getElementById('sessionsInput');
+    nodes.activeSpaceTitle = document.getElementById('activeSpaceTitle');
+    nodes.activeTabTitle = document.getElementById('activeTabTitle');
+    nodes.activeTabFavicon = document.getElementById('activeTabFavicon');
+    nodes.okButton = document.getElementById('moveBtn');
+    nodes.cancelButton = document.getElementById('cancelBtn');
 
-        // nodes.home.setAttribute('href', chrome.extension.getURL('spaces.html'));
+    // nodes.home.setAttribute('href', chrome.extension.getURL('spaces.html'));
 
-        nodes.moveForm.onsubmit = e => {
-            e.preventDefault();
-            handleSelectAction();
-        };
+    nodes.moveForm.onsubmit = e => {
+        e.preventDefault();
+        handleSelectAction();
+    };
 
-        nodes.body.onkeyup = e => {
-            // highlight ok button when you start typing
-            if (nodes.moveInput.value.length > 0) {
-                nodes.okButton.className = 'button okBtn selected';
-            } else {
-                nodes.okButton.className = 'button okBtn';
-            }
-
-            // listen for escape key
-            if (e.keyCode === 27) {
-                handleCloseAction();
-            }
-        };
-
-        nodes.spaceEditButton.onclick = () => {
-            handleEditSpace();
-        };
-        nodes.okButton.onclick = () => {
-            handleSelectAction();
-        };
-        nodes.cancelButton.onclick = () => {
-            handleCloseAction();
-        };
-
-        // update currentSpaceDiv
-        // nodes.windowTitle.innerHTML = "Current space: " + (globalSessionName ? globalSessionName : 'unnamed');
-        nodes.activeSpaceTitle.innerHTML = globalSessionName || '(unnamed)';
-        // selectSpace(nodes.activeSpace);
-
-        await updateTabDetails();
-
-        const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
-        // remove currently visible space
-        const filteredSpaces = spaces.filter(space => {
-            return `${space.windowId}` !== globalWindowId;
-        });
-        spacesRenderer.initialise(5, false);
-        spacesRenderer.renderSpaces(filteredSpaces);
-
-        const allSpaceEls = document.querySelectorAll('.space');
-        for (const el of allSpaceEls) {
-            // eslint-disable-next-line no-param-reassign
-            const existingClickHandler = el.onclick;
-            el.onclick = e => {
-                existingClickHandler(e);
-                handleSelectAction();
-            };
+    nodes.body.onkeyup = e => {
+        // highlight ok button when you start typing
+        if (nodes.moveInput.value.length > 0) {
+            nodes.okButton.className = 'button okBtn selected';
+        } else {
+            nodes.okButton.className = 'button okBtn';
         }
+
+        // listen for escape key
+        if (e.keyCode === 27) {
+            handleCloseAction();
+        }
+    };
+
+    nodes.spaceEditButton.onclick = () => {
+        handleEditSpace();
+    };
+    nodes.okButton.onclick = () => {
+        handleSelectAction();
+    };
+    nodes.cancelButton.onclick = () => {
+        handleCloseAction();
+    };
+
+    // update currentSpaceDiv
+    // nodes.windowTitle.innerHTML = "Current space: " + (globalSessionName ? globalSessionName : 'unnamed');
+    nodes.activeSpaceTitle.innerHTML = globalSessionName || '(unnamed)';
+    // selectSpace(nodes.activeSpace);
+
+    await updateTabDetails();
+
+    const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
+    // remove currently visible space
+    const filteredSpaces = spaces.filter(space => {
+        return `${space.windowId}` !== globalWindowId;
+    });
+    spacesRenderer.initialise(5, false);
+    spacesRenderer.renderSpaces(filteredSpaces);
+
+    const allSpaceEls = document.querySelectorAll('.space');
+    for (const el of allSpaceEls) {
+        // eslint-disable-next-line no-param-reassign
+        const existingClickHandler = el.onclick;
+        el.onclick = e => {
+            existingClickHandler(e);
+            handleSelectAction();
+        };
     }
+}
 
 async function updateTabDetails() {
     let faviconSrc;
@@ -389,52 +389,53 @@ async function updateTabDetails() {
     }
 }
 
-    function handleSelectAction() {
-        const selectedSpaceEl = document.querySelector('.space.selected');
-        const sessionId = selectedSpaceEl.getAttribute('data-sessionId');
-        const windowId = selectedSpaceEl.getAttribute('data-windowId');
-        const newSessionName = nodes.moveInput.value;
-        const params = {};
+function handleSelectAction() {
+    const selectedSpaceEl = document.querySelector('.space.selected');
+    const sessionId = selectedSpaceEl.getAttribute('data-sessionId');
+    const windowId = selectedSpaceEl.getAttribute('data-windowId');
+    const newSessionName = nodes.moveInput.value;
+    const params = {};
 
-        if (sessionId && sessionId !== 'false') {
-            params.sessionId = sessionId;
+    if (sessionId && sessionId !== 'false') {
+        params.sessionId = sessionId;
 
-            if (globalTabId) {
-                params.action = 'moveTabToSession';
-                params.tabId = globalTabId;
-            } else if (globalUrl) {
-                params.action = 'addLinkToSession';
-                params.url = globalUrl;
-            }
-        } else if (windowId && windowId !== 'false') {
-            params.windowId = windowId;
-
-            if (globalTabId) {
-                params.action = 'moveTabToWindow';
-                params.tabId = globalTabId;
-            } else if (globalUrl) {
-                params.action = 'addLinkToWindow';
-                params.url = globalUrl;
-            }
-        } else {
-            params.sessionName = newSessionName;
-
-            if (globalTabId) {
-                params.action = 'moveTabToNewSession';
-                params.tabId = globalTabId;
-            } else if (globalUrl) {
-                params.action = 'addLinkToNewSession';
-                params.url = globalUrl;
-            }
+        if (globalTabId) {
+            params.action = 'moveTabToSession';
+            params.tabId = globalTabId;
+        } else if (globalUrl) {
+            params.action = 'addLinkToSession';
+            params.url = globalUrl;
         }
+    } else if (windowId && windowId !== 'false') {
+        params.windowId = windowId;
 
-        chrome.runtime.sendMessage(params);
-        // this window will be closed by background script
+        if (globalTabId) {
+            params.action = 'moveTabToWindow';
+            params.tabId = globalTabId;
+        } else if (globalUrl) {
+            params.action = 'addLinkToWindow';
+            params.url = globalUrl;
+        }
+    } else {
+        params.sessionName = newSessionName;
+
+        if (globalTabId) {
+            params.action = 'moveTabToNewSession';
+            params.tabId = globalTabId;
+        } else if (globalUrl) {
+            params.action = 'addLinkToNewSession';
+            params.url = globalUrl;
+        }
     }
-    function handleEditSpace() {
-        chrome.runtime.sendMessage({
-            action: 'requestShowSpaces',
-            windowId: globalWindowId,
-            edit: 'true',
-        });
-    }
+
+    chrome.runtime.sendMessage(params);
+    // this window will be closed by background script
+}
+
+function handleEditSpace() {
+    chrome.runtime.sendMessage({
+        action: 'requestShowSpaces',
+        windowId: globalWindowId,
+        edit: 'true',
+    });
+}
