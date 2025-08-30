@@ -2,7 +2,7 @@
 //Copyright (c) 2012 Aaron Powell
 /**
  * Changes in 2025 by codedread:
- * - Removed unused CallbackList class.
+ * - Removed unused code.
  * - Modernized code style.
  * - Made into an ES module.
  */

@@ -447,18 +447,31 @@ class SpacesService {
     // Set a timeout so that multiple tabs all opened at once (like when restoring a session)
     // only trigger this function once (as per the timeout set by the last tab event)
     // This will cause multiple triggers if time between tab openings is longer than 1 sec
-    queueWindowEvent(windowId, eventId, callback) {
+    queueWindowEvent(windowId, eventId, callback = noop) {
         clearTimeout(this.sessionUpdateTimers[windowId]);
 
         this.eventQueueCount += 1;
 
-        this.sessionUpdateTimers[windowId] = setTimeout(() => {
-            this.handleWindowEvent(windowId, eventId, callback);
+        this.sessionUpdateTimers[windowId] = setTimeout(async () => {
+            const shouldCallback = await this.handleWindowEvent(windowId, eventId);
+            if (shouldCallback) callback();
         }, 1000);
     }
 
-    // careful here as this function gets called A LOT
-    async handleWindowEvent(windowId, eventId, callback = noop) {
+    /**
+     * Handles window events by updating session data when tabs change within a window.
+     * This function processes batched tab events and updates the corresponding session
+     * in the database.
+     * 
+     * NOTE: Careful here as this function gets called A LOT
+     * 
+     * @param {number} windowId - The ID of the window that triggered the event
+     * @param {number} eventId - The unique event identifier for tracking/debugging purposes
+     * @returns {Promise<boolean>} Promise that resolves to:
+     *   - true if the window event was successfully processed
+     *   - false if the event was ignored (invalid window, internal window, closed window, etc.)
+     */
+    async handleWindowEvent(windowId, eventId) {
         if (debug) {
             // eslint-disable-next-line no-console
             console.log('------------------------------------------------');
@@ -477,7 +490,7 @@ class SpacesService {
                     `received an event for windowId: ${windowId} which is obviously wrong`
                 );
             }
-            return;
+            return false;
         }
 
         let curWindow;
@@ -496,11 +509,11 @@ class SpacesService {
                 windowId,
                 false
             );
-            return;
+            return false;
         }
 
         if (!curWindow || this.filterInternalWindows(curWindow)) {
-            return;
+            return false;
         }
 
         // don't allow event if it pertains to a closed window id
@@ -511,7 +524,7 @@ class SpacesService {
                     `ignoring event as it pertains to a closed windowId: ${windowId}`
                 );
             }
-            return;
+            return false;
         }
 
         // if window is associated with an open session then update session
@@ -575,7 +588,7 @@ class SpacesService {
             }
             this.checkForSessionMatch(curWindow);
         }
-        callback();
+        return true;
     }
 
     // PUBLIC FUNCTIONS
