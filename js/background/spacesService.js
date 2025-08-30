@@ -6,8 +6,6 @@
 
 import { dbService } from './dbService.js';
 
-// TODO(codedread): Eliminate all global variables and use chrome.storage.local. 
-
 // eslint-disable-next-line no-var
 export var spacesService = {
     tabHistoryUrlMap: {},
