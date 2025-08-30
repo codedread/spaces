@@ -13,9 +13,9 @@ let globalUrl;
 let globalWindowId;
 let globalSessionName;
 
-/*
-    * POPUP INIT
-    */
+/**
+ * POPUP INIT
+ */
 
 document.addEventListener('DOMContentLoaded', async () => {
     const url = utils.getHashVariable('url', window.location.href);
@@ -53,9 +53,9 @@ function routeView(action) {
     }
 }
 
-/*
-    * COMMON
-    */
+/**
+ * COMMON
+ */
 
 function renderCommon() {
     document.getElementById(
@@ -104,9 +104,9 @@ function handleCloseAction() {
     }
 }
 
-/*
-    * MAIN POPUP VIEW
-    */
+/**
+ * MAIN POPUP VIEW
+ */
 
 async function renderMainCard() {
     const hotkeys = await requestHotkeys();
@@ -219,7 +219,7 @@ async function handleNameSave() {
     }
 }
 
-/*
+/**
  * SWITCHER VIEW
  */
 
@@ -261,9 +261,9 @@ async function handleSwitchAction(selectedSpaceEl) {
     window.close();
 }
 
-/*
-    * MOVE VIEW
-    */
+/**
+ * MOVE VIEW
+ */
 
 async function renderMoveCard() {
     document.getElementById(
