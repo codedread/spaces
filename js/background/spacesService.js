@@ -762,7 +762,15 @@ class SpacesService {
         }
     }
 
-    async deleteSession(sessionId, callback = noop) {
+    /**
+     * Deletes a session from the database and removes it from the cache.
+     * 
+     * @param {number} sessionId - The ID of the session to delete
+     * @returns {Promise<boolean>} Promise that resolves to:
+     *   - true if session was successfully deleted
+     *   - false if session deletion failed
+     */
+    async deleteSession(sessionId) {
         try {
             const success = await dbService.removeSession(sessionId);
             if (success) {
@@ -775,10 +783,10 @@ class SpacesService {
                     return false;
                 });
             }
-            callback(success);
+            return success;
         } catch (error) {
             console.error('Error deleting session:', error);
-            callback(false);
+            return false;
         }
     }
 }

@@ -1031,7 +1031,8 @@ async function handleDeleteSession(sessionId, callback) {
         return;
     }
 
-    spacesService.deleteSession(sessionId, callback);
+    const result = await spacesService.deleteSession(sessionId);
+    callback(result);
 }
 
 async function handleAddLinkToNewSession(url, sessionName, callback) {
