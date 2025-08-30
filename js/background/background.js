@@ -1019,7 +1019,8 @@ async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callba
         }
         handleDeleteSession(existingSession.id, noop);
     }
-    spacesService.updateSessionName(sessionId, sessionName, callback);
+    const result = await spacesService.updateSessionName(sessionId, sessionName);
+    callback(result);
 }
 
 async function handleDeleteSession(sessionId, callback) {
@@ -1096,7 +1097,8 @@ async function handleAddLinkToSession(url, sessionId, callback) {
     } else {
         // update session in db
         session.tabs = session.tabs.concat(newTabs);
-        spacesService.updateSessionTabs(session.id, session.tabs, callback);
+        const result = await spacesService.updateSessionTabs(session.id, session.tabs);
+        callback(result);
     }
 }
 
@@ -1137,11 +1139,11 @@ async function handleMoveTabToSession(tabId, sessionId, callback) {
 
         // update session in db
         session.tabs = session.tabs.concat(newTabs);
-        spacesService.updateSessionTabs(
+        const result = await spacesService.updateSessionTabs(
             session.id,
-            session.tabs,
-            callback
+            session.tabs
         );
+        callback(result);
     }
 }
 

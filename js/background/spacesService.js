@@ -650,23 +650,39 @@ class SpacesService {
 
     // Database actions
 
-    async updateSessionTabs(sessionId, tabs, callback = noop) {
+    /**
+     * Updates the tabs of an existing session in the database.
+     * 
+     * @param {number} sessionId - The ID of the session to update
+     * @param {Array<Object>} tabs - Array of tab objects containing URL and other tab properties
+     * @returns {Promise<Session|null>} Promise that resolves to:
+     *   - Updated session object if successfully saved
+     *   - null if session update failed
+     */
+    async updateSessionTabs(sessionId, tabs) {
         const session = await dbService.fetchSessionById(sessionId);
 
         // update tabs in session
         session.tabs = tabs;
         session.sessionHash = generateSessionHash(session.tabs);
 
-        const result = await this.saveExistingSession(session);
-        callback(result);
+        return this.saveExistingSession(session);
     }
 
-    async updateSessionName(sessionId, sessionName, callback = noop) {
+    /**
+     * Updates the name of an existing session in the database.
+     * 
+     * @param {number} sessionId - The ID of the session to update
+     * @param {string} sessionName - The new name for the session
+     * @returns {Promise<Session|null>} Promise that resolves to:
+     *   - Updated session object if successfully saved
+     *   - null if session update failed
+     */
+    async updateSessionName(sessionId, sessionName) {
         const session = await dbService.fetchSessionById(sessionId);
         session.name = sessionName;
 
-        await this.saveExistingSession(session);
-        callback();
+        return this.saveExistingSession(session);
     }
 
     /**
