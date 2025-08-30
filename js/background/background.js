@@ -948,12 +948,12 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) 
         }
         handleDeleteSession(existingSession.id, noop);
     }
-    spacesService.saveNewSession(
+    const result = await spacesService.saveNewSession(
         sessionName,
         curWindow.tabs,
-        curWindow.id,
-        callback
+        curWindow.id
     );
+    callback(result);
 }
 
 async function handleRestoreFromBackup(space, deleteOld, callback) {
@@ -975,12 +975,12 @@ async function handleRestoreFromBackup(space, deleteOld, callback) {
         handleDeleteSession(existingSession.id, noop);
     }
 
-    spacesService.saveNewSession(
+    const result = await spacesService.saveNewSession(
         space.name,
         space.tabs,
-        false,
-        callback
+        false
     );
+    callback(result);
 }
 
 async function handleImportNewSession(urlList, callback) {
@@ -998,7 +998,8 @@ async function handleImportNewSession(urlList, callback) {
     });
 
     // save session to database
-    spacesService.saveNewSession(tempName, tabList, false, callback);
+    const result = await spacesService.saveNewSession(tempName, tabList, false);
+    callback(result);
 }
 
 async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
@@ -1043,7 +1044,8 @@ async function handleAddLinkToNewSession(url, sessionName, callback) {
 
         // else create a new session with this name containing this url
     } else {
-        spacesService.saveNewSession(sessionName, newTabs, false, callback);
+        const result = await spacesService.saveNewSession(sessionName, newTabs, false);
+        callback(result);
     }
 }
 
@@ -1067,12 +1069,12 @@ async function handleMoveTabToNewSession(tabId, sessionName, callback) {
         chrome.tabs.remove(tab.id);
 
         // save session to database
-        spacesService.saveNewSession(
+        const result = await spacesService.saveNewSession(
             sessionName,
             [tab],
-            false,
-            callback
+            false
         );
+        callback(result);
     }
 }
 

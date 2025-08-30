@@ -675,12 +675,23 @@ class SpacesService {
         }
     }
 
-    async saveNewSession(sessionName, tabs, windowId, callback = noop) {
+    /**
+     * Creates a new session with the provided name, tabs, and window association.
+     * If a temporary session exists for the given windowId, it will be converted to a permanent session.
+     * Otherwise, a new session is created and added to the sessions cache.
+     * 
+     * @param {string} sessionName - The name for the new session
+     * @param {Array<Object>} tabs - Array of tab objects containing URL and other tab properties
+     * @param {number|false} windowId - The window ID to associate with this session, or false for no association
+     * @returns {Promise<Object|null>} Promise that resolves to:
+     *   - Session object with id property if successfully created
+     *   - null if session creation failed or no tabs were provided
+     */
+    async saveNewSession(sessionName, tabs, windowId) {
         await this.ensureInitialized();
         
         if (!tabs) {
-            callback();
-            return;
+            return null;
         }
 
         const sessionHash = generateSessionHash(tabs);
@@ -712,14 +723,14 @@ class SpacesService {
             if (savedSession) {
                 // update sessionId in cache
                 session.id = savedSession.id;
-                callback(savedSession);
+                return savedSession;
             } else {
                 console.error('Failed to create session');
-                callback(false);
+                return null;
             }
         } catch (error) {
             console.error('Error creating session:', error);
-            callback(false);
+            return null;
         }
     }
 
