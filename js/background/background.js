@@ -207,7 +207,9 @@ chrome.runtime.onStartup.addListener(async () => {
                 return true;
 
             case 'requestCurrentSpace':
-                requestCurrentSpace(sendResponse);
+                requestCurrentSpace().then(space => {
+                    sendResponse(space);
+                });
                 return true;
 
             case 'generatePopupParams':
@@ -735,10 +737,13 @@ async function requestTabDetail(tabId) {
     }
 }
 
-async function requestCurrentSpace(callback) {
+/**
+ * Requests the current space based on the current window.
+ * @returns {Promise<Space|false>}
+ */
+async function requestCurrentSpace() {
     const window = await chrome.windows.getCurrent();
-    const space = await requestSpaceFromWindowId(window.id);
-    callback(space);
+    return await requestSpaceFromWindowId(window.id);
 }
 
 /**
