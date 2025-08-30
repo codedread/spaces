@@ -200,7 +200,9 @@ chrome.runtime.onStartup.addListener(async () => {
             case 'requestSpaceFromWindowId':
                 windowId = _cleanParameter(request.windowId);
                 if (windowId) {
-                    requestSpaceFromWindowId(windowId, sendResponse);
+                    requestSpaceFromWindowId(windowId).then(space => {
+                        sendResponse(space);
+                    });
                 }
                 return true;
 
@@ -309,7 +311,9 @@ chrome.runtime.onStartup.addListener(async () => {
                     if (checkInternalSpacesWindows(windowId, false)) {
                         sendResponse(false);
                     } else {
-                        requestSpaceFromWindowId(windowId, sendResponse);
+                        requestSpaceFromWindowId(windowId).then(space => {
+                            sendResponse(space);
+                        });
                     }
                 } else if (sessionId) {
                     requestSpaceFromSessionId(sessionId, sendResponse);
@@ -731,47 +735,49 @@ async function requestTabDetail(tabId) {
     }
 }
 
-function requestCurrentSpace(callback) {
-    chrome.windows.getCurrent(window => {
-        requestSpaceFromWindowId(window.id, callback);
-    });
+async function requestCurrentSpace(callback) {
+    const window = await chrome.windows.getCurrent();
+    const space = await requestSpaceFromWindowId(window.id);
+    callback(space);
 }
 
-    // returns a 'space' object which is essentially the same as a session object
-    // except that includes space.sessionId (session.id) and space.windowId
-    async function requestSpaceFromWindowId(windowId, callback) {
-        // first check for an existing session matching this windowId
-        const session = await dbService.fetchSessionByWindowId(windowId);
+/**
+ * @param {number} windowId
+ * @returns {Promise<Space|false>}
+ */
+async function requestSpaceFromWindowId(windowId) {
+    // first check for an existing session matching this windowId
+    const session = await dbService.fetchSessionByWindowId(windowId);
 
-        if (session) {
+    if (session) {
+        /** @type {Space} */
+        const space = {
+            sessionId: session.id,
+            windowId: session.windowId,
+            name: session.name,
+            tabs: session.tabs,
+            history: session.history,
+        };
+        return space;
+
+    // otherwise build a space object out of the actual window
+    } else {
+        try {
+            const window = await chrome.windows.get(windowId, { populate: true });
             /** @type {Space} */
             const space = {
-                sessionId: session.id,
-                windowId: session.windowId,
-                name: session.name,
-                tabs: session.tabs,
-                history: session.history,
+                sessionId: false,
+                windowId: window.id,
+                name: false,
+                tabs: window.tabs,
+                history: false,
             };
-            callback(space);
-
-        // otherwise build a space object out of the actual window
-        } else {
-            try {
-                const window = await chrome.windows.get(windowId, { populate: true });
-                /** @type {Space} */
-                const space = {
-                    sessionId: false,
-                    windowId: window.id,
-                    name: false,
-                    tabs: window.tabs,
-                    history: false,
-                };
-                callback(space);
-            } catch (e) {
-                callback(false);
-            }
+            return space;
+        } catch (e) {
+            return false;
         }
     }
+}
 
     async function requestSpaceFromSessionId(sessionId, callback) {
         const session = await dbService.fetchSessionById(sessionId);
