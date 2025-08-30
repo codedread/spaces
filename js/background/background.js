@@ -291,7 +291,8 @@ async function processMessage(request, sender, sendResponse) {
         case 'deleteSession':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId) {
-                handleDeleteSession(sessionId, sendResponse);
+                const result = await handleDeleteSession(sessionId);
+                sendResponse(result);
             }
             return true;
 
@@ -946,7 +947,7 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) 
 
             // if we choose to overwrite, delete the existing session
         }
-        handleDeleteSession(existingSession.id, noop);
+        await handleDeleteSession(existingSession.id);
     }
     const result = await spacesService.saveNewSession(
         sessionName,
@@ -972,7 +973,7 @@ async function handleRestoreFromBackup(space, deleteOld, callback) {
 
                 // if we choose to overwrite, delete the existing session
         }
-        handleDeleteSession(existingSession.id, noop);
+        await handleDeleteSession(existingSession.id);
     }
 
     const result = await spacesService.saveNewSession(
@@ -1017,22 +1018,28 @@ async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callba
 
             // if we choose to override, then delete the existing session
         }
-        handleDeleteSession(existingSession.id, noop);
+        await handleDeleteSession(existingSession.id);
     }
     const result = await spacesService.updateSessionName(sessionId, sessionName);
     callback(result);
 }
 
-async function handleDeleteSession(sessionId, callback) {
+/**
+ * Deletes a session from the database and removes it from the cache.
+ * 
+ * @param {number} sessionId
+ * @returns {Promise<boolean>} Promise that resolves to:
+ *   - true if session was successfully deleted
+ *   - false if session deletion failed or session not found
+ */
+async function handleDeleteSession(sessionId) {
     const session = await dbService.fetchSessionById(sessionId);
     if (!session) {
         console.error(`handleDeleteSession: No session found with id ${sessionId}`);
-        callback(false);
-        return;
+        return false;
     }
 
-    const result = await spacesService.deleteSession(sessionId);
-    callback(result);
+    return spacesService.deleteSession(sessionId);
 }
 
 async function handleAddLinkToNewSession(url, sessionName, callback) {
