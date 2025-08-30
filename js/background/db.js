@@ -7,6 +7,7 @@
  * - Made into an ES module.
  */
 
+/** @type {Object<string, IDBTransactionMode>} */
 const transactionModes = {
     readonly: 'readonly',
     readwrite: 'readwrite',
@@ -450,6 +451,12 @@ var IndexQuery = function(table, db, indexName) {
     };
 };
 
+/**
+ * Creates the database schema.
+ * @param {Event} e 
+ * @param {*} schema 
+ * @param {*} db 
+ */
 function createSchema(e, schema, db) {
     if (typeof schema === 'function') {
         schema = schema();
@@ -483,11 +490,12 @@ function createSchema(e, schema, db) {
 }
 
 /**
+ * Opens a connection to the database, caching it for future use.
  * @param {Event} e 
  * @param {string} server 
  * @param {string} version 
  * @param {Object} schema 
- * @returns 
+ * @returns {Promise<Server>}
  */
 function dbOpen(e, server, version, schema) {
     var db = e.target.result;
