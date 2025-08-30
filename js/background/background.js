@@ -462,12 +462,13 @@ async function processMessage(request, sender, sendResponse) {
             tabId = cleanParameter(request.tabId);
 
             if (windowId && tabId) {
-                await handleMoveTabToWindow(tabId, windowId, result => {
-                    if (result) updateSpacesWindow('moveTabToWindow');
+                const result = await handleMoveTabToWindow(tabId, windowId);
+                if (result) {
+                    updateSpacesWindow('moveTabToWindow');
+                }
 
-                    // close the requesting tab (should be tab.html)
-                    closePopupWindow();
-                });
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -1146,7 +1147,8 @@ async function handleMoveTabToSession(tabId, sessionId, callback) {
     } else {
         // if session is currently open then move it directly
         if (session.windowId) {
-            moveTabToWindow(tab, session.windowId, callback);
+            moveTabToWindow(tab, session.windowId);
+            callback(true);
             return;
         }
 
@@ -1164,24 +1166,33 @@ async function handleMoveTabToSession(tabId, sessionId, callback) {
     }
 }
 
-async function handleMoveTabToWindow(tabId, windowId, callback) {
+/**
+ * @param {number} tabId
+ * @param {number} windowId
+ * @returns {Promise<boolean>} Promise that resolves to:
+ *   - true if the tab was successfully moved
+ *   - false if the tab was not found or move failed
+ */
+async function handleMoveTabToWindow(tabId, windowId) {
     const tab = await requestTabDetail(tabId);
     if (!tab) {
-        callback(false);
-        return;
+        return false;
     }
-    moveTabToWindow(tab, windowId, callback);
+    moveTabToWindow(tab, windowId);
+    return true;
 }
 
-function moveTabToWindow(tab, windowId, callback) {
+/**
+ * @param {chrome.tabs.Tab} tab
+ * @param {number} windowId The ID of the destination window.
+ */
+function moveTabToWindow(tab, windowId) {
     chrome.tabs.move(tab.id, { windowId, index: -1 });
 
     // NOTE: this move does not seem to trigger any tab event listeners
     // so we need to update sessions manually
     spacesService.queueWindowEvent(tab.windowId);
     spacesService.queueWindowEvent(windowId);
-
-    callback(true);
 }
 
 console.log(`Initializing spacesService...`);
