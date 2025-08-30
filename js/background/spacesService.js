@@ -4,6 +4,8 @@
  * Copyright (C) 2015 Dean Oemcke
  */
 
+/** @typedef {import('./dbService.js').Session} Session */
+
 import { dbService } from './dbService.js';
 
 // Module-level properties
@@ -559,7 +561,7 @@ class SpacesService {
 
             // if it is a saved session then update db
             if (session.id) {
-                this.saveExistingSession(session, callback);
+                await this.saveExistingSession(session);
             }
         }
 
@@ -655,23 +657,33 @@ class SpacesService {
         session.tabs = tabs;
         session.sessionHash = generateSessionHash(session.tabs);
 
-        this.saveExistingSession(session, callback);
+        const result = await this.saveExistingSession(session);
+        callback(result);
     }
 
     async updateSessionName(sessionId, sessionName, callback = noop) {
         const session = await dbService.fetchSessionById(sessionId);
         session.name = sessionName;
 
-        this.saveExistingSession(session, callback);
+        await this.saveExistingSession(session);
+        callback();
     }
 
-    async saveExistingSession(session, callback = noop) {
+    /**
+     * Updates an existing session in the database.
+     * 
+     * @param {Session} session - The session object to update
+     * @returns {Promise<Session|null>} Promise that resolves to:
+     *   - Updated session object if successfully saved
+     *   - null if session update failed
+     */
+    async saveExistingSession(session) {
         try {
             const updatedSession = await dbService.updateSession(session);
-            callback(updatedSession);
+            return updatedSession || null;
         } catch (error) {
             console.error('Error saving existing session:', error);
-            callback(null);
+            return null;
         }
     }
 
@@ -683,7 +695,7 @@ class SpacesService {
      * @param {string} sessionName - The name for the new session
      * @param {Array<Object>} tabs - Array of tab objects containing URL and other tab properties
      * @param {number|false} windowId - The window ID to associate with this session, or false for no association
-     * @returns {Promise<Object|null>} Promise that resolves to:
+     * @returns {Promise<Session|null>} Promise that resolves to:
      *   - Session object with id property if successfully created
      *   - null if session creation failed or no tabs were provided
      */
