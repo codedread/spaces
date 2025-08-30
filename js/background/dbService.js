@@ -40,9 +40,10 @@ const DB_SESSIONS = 'ttSessions';
 class DbService {
     /**
      * Opens and returns a database connection.
+     * @private
      * @returns {Promise<Server>} Promise that resolves to database connection
      */
-    getDb() {
+    _getDb() {
         return db.open({
             server: DB_SERVER,
             version: DB_VERSION,
@@ -52,10 +53,11 @@ class DbService {
 
     /**
      * Fetches all sessions from the database.
+     * @private
      * @returns {Promise<Array<Session>>} Promise that resolves to array of session objects
      */
     _fetchAllSessions() {
-        return this.getDb().then(s => {
+        return this._getDb().then(s => {
             return s
                 .query(DB_SESSIONS)
                 .all()
@@ -65,11 +67,12 @@ class DbService {
 
     /**
      * Fetches a session by ID from the database.
+     * @private
      * @param {number} id - The session ID to fetch
      * @returns {Promise<Session|null>} Promise that resolves to session object or null if not found
      */
     _fetchSessionById(id) {
-        return this.getDb().then(s => {
+        return this._getDb().then(s => {
             return s
                 .query(DB_SESSIONS, 'id')
                 .only(id)
@@ -113,10 +116,11 @@ class DbService {
     }
 
     /**
-     * Fetches all session names.
+     * Fetches all session names. Not used today.
+     * @private
      * @returns {Promise<Array<string>>} Promise that resolves to array of session names
      */
-    async fetchSessionNames() {
+    async _fetchSessionNames() {
         try {
             const sessions = await this._fetchAllSessions();
             return sessions.map(session => session.name);
@@ -176,7 +180,7 @@ class DbService {
         const { id, ..._session } = session;
 
         try {
-            const s = await this.getDb();
+            const s = await this._getDb();
             const result = await s.add(DB_SESSIONS, _session);
             return result.length > 0 ? result[0] : null;
         } catch (error) {
@@ -197,7 +201,7 @@ class DbService {
         }
 
         try {
-            const s = await this.getDb();
+            const s = await this._getDb();
             const result = await s.update(DB_SESSIONS, session);
             return result.length > 0 ? result[0] : null;
         } catch (error) {
@@ -215,7 +219,7 @@ class DbService {
         const _id = typeof id === 'string' ? parseInt(id, 10) : id;
 
         try {
-            const s = await this.getDb();
+            const s = await this._getDb();
             await s.remove(DB_SESSIONS, _id);
             return true;
         } catch (error) {
