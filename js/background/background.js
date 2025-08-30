@@ -327,9 +327,8 @@ async function processMessage(request, sender, sendResponse) {
         // end points called by tag.js and switcher.js
         // note: some of these endpoints will close the requesting tab
         case 'requestAllSpaces':
-            await requestAllSpaces(allSpaces => {
-                sendResponse(allSpaces);
-            });
+            const allSpaces = await requestAllSpaces();
+            sendResponse(allSpaces);
             return true;
 
         case 'requestTabDetail':
@@ -392,9 +391,7 @@ async function processMessage(request, sender, sendResponse) {
                     request.url,
                     request.sessionName
                 );
-                if (result) {
-                    updateSpacesWindow('addLinkToNewSession');
-                }
+                if (result) updateSpacesWindow('addLinkToNewSession');
 
                 // close the requesting tab (should be tab.html)
                 closePopupWindow();
@@ -408,9 +405,7 @@ async function processMessage(request, sender, sendResponse) {
                     tabId,
                     request.sessionName
                 );
-                if (result) {
-                    updateSpacesWindow('moveTabToNewSession');
-                }
+                if (result) updateSpacesWindow('moveTabToNewSession');
 
                 // close the requesting tab (should be tab.html)
                 closePopupWindow();
@@ -421,12 +416,11 @@ async function processMessage(request, sender, sendResponse) {
             sessionId = cleanParameter(request.sessionId);
 
             if (sessionId && request.url) {
-                await handleAddLinkToSession(request.url, sessionId, result => {
-                    if (result) updateSpacesWindow('addLinkToSession');
+                const result = await handleAddLinkToSession(request.url, sessionId);
+                if (result) updateSpacesWindow('addLinkToSession');
 
-                    // close the requesting tab (should be tab.html)
-                    closePopupWindow();
-                });
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -448,12 +442,11 @@ async function processMessage(request, sender, sendResponse) {
             windowId = cleanParameter(request.windowId);
 
             if (windowId && request.url) {
-                await handleAddLinkToWindow(request.url, windowId, result => {
-                    if (result) updateSpacesWindow('addLinkToWindow');
+                handleAddLinkToWindow(request.url, windowId);
+                updateSpacesWindow('addLinkToWindow');
 
-                    // close the requesting tab (should be tab.html)
-                    closePopupWindow();
-                });
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -688,17 +681,16 @@ async function updateSpacesWindow(source) {
             return;
         }
 
-        requestAllSpaces(allSpaces => {
-            try {
-                chrome.runtime.sendMessage({
-                    action: 'updateSpaces',
-                    spaces: allSpaces,
-                });
-            } catch (err) {
-                // eslint-disable-next-line no-console
-                console.error(`updateSpacesWindow: Error updating spaces window: ${err}`);
-            }
-        });
+        try {
+            const allSpaces = await requestAllSpaces();
+            chrome.runtime.sendMessage({
+                action: 'updateSpaces',
+                spaces: allSpaces,
+            });
+        } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error(`updateSpacesWindow: Error updating spaces window: ${err}`);
+        }
     }
 }
 
@@ -800,7 +792,12 @@ async function requestSpaceFromSessionId(sessionId, callback) {
     });
 }
 
-async function requestAllSpaces(callback) {
+/**
+ * Requests all spaces (sessions) from the database.
+ * 
+ * @returns {Promise<Space[]>} Promise that resolves to an array of Space objects
+ */
+async function requestAllSpaces() {
     const sessions = await dbService.fetchAllSessions();
     const allSpaces = sessions
         .map(session => {
@@ -813,7 +810,7 @@ async function requestAllSpaces(callback) {
     // sort results
     allSpaces.sort(spaceDateCompare);
 
-    callback(allSpaces);
+    return allSpaces;
 }
 
 function spaceDateCompare(a, b) {
@@ -1097,37 +1094,50 @@ async function handleMoveTabToNewSession(tabId, sessionName) {
     }
 }
 
-async function handleAddLinkToSession(url, sessionId, callback) {
+/**
+ * Adds a link to an existing session.
+ * 
+ * @param {string} url - The URL to add to the session
+ * @param {number} sessionId - The ID of the session to add the link to
+ * @returns {Promise<boolean>} Promise that resolves to:
+ *   - true if the link was successfully added
+ *   - false if the session was not found or addition failed
+ */
+async function handleAddLinkToSession(url, sessionId) {
     const session = await dbService.fetchSessionById(sessionId);
     const newTabs = [{ url }];
 
     // if we have not found a session matching this name then return as an error as we are
     // supposed to be adding the tab to an existing session
     if (!session) {
-        callback(false);
-        return;
+        return false;
     }
     // if session is currently open then add link directly
     if (session.windowId) {
-        handleAddLinkToWindow(url, session.windowId, callback);
+        handleAddLinkToWindow(url, session.windowId);
+        return true;
 
         // else add tab to saved session in database
     } else {
         // update session in db
         session.tabs = session.tabs.concat(newTabs);
         const result = await spacesService.updateSessionTabs(session.id, session.tabs);
-        callback(result);
+        return !!result;
     }
 }
 
-function handleAddLinkToWindow(url, windowId, callback) {
+/**
+ * Adds a link to a window by creating a new tab.
+ * 
+ * @param {string} url - The URL to create a tab for
+ * @param {number} windowId - The ID of the window to add the tab to
+ */
+function handleAddLinkToWindow(url, windowId) {
     chrome.tabs.create({ windowId, url, active: false });
 
     // NOTE: this move does not seem to trigger any tab event listeners
     // so we need to update sessions manually
     spacesService.queueWindowEvent(windowId);
-
-    callback(true);
 }
 
 async function handleMoveTabToSession(tabId, sessionId, callback) {
