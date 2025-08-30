@@ -15,7 +15,7 @@ const transactionModes = {
 const hasOwn = Object.prototype.hasOwnProperty;
 const defaultMapper = (value) => value;
 
-class Server {
+export class Server {
     /** @type {IDBDatabase} */
     db;
 
@@ -33,22 +33,6 @@ class Server {
         this.db = db;
         this.name = name;
         this.closed = false;
-
-        for (var i = 0, il = db.objectStoreNames.length; i < il; i++) {
-            (function(storeName) {
-                this[storeName] = {};
-                for (var methodName in this) {
-                    if (hasOwn.call(this, methodName) || methodName === 'close') {
-                        continue;
-                    }
-                    this[storeName][methodName] = ((methodName) => {
-                        return (...args) => {
-                            return this[methodName].apply(this, [storeName, ...args]);
-                        };
-                    })(methodName);
-                }
-            }).bind(this)(db.objectStoreNames[i]);
-        }
     }
 
     add(table) {

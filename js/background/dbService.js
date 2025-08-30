@@ -1,6 +1,6 @@
 /* global db */
 
-import { db } from './db.js';
+import { db, Server } from './db.js';
 
 // eslint-disable-next-line no-var
 export var dbService = {
@@ -12,7 +12,7 @@ export var dbService = {
 
     /**
      * Opens and returns a database connection.
-     * @returns {Promise} Promise that resolves to database connection
+     * @returns {Promise<Server>} Promise that resolves to database connection
      */
     getDb() {
         return db.open({
