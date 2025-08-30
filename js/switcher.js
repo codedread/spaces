@@ -77,10 +77,9 @@ function addEventListeners() {
     });
 }
 
-window.onload = () => {
-    chrome.runtime.sendMessage({ action: 'requestAllSpaces' }, spaces => {
-        spacesRenderer.initialise(8, true);
-        spacesRenderer.renderSpaces(spaces);
-        addEventListeners();
-    });
+window.onload = async () => {
+    const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
+    spacesRenderer.initialise(8, true);
+    spacesRenderer.renderSpaces(spaces);
+    addEventListeners();
 };

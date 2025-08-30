@@ -138,11 +138,10 @@ import { utils } from './utils.js';
         document
             .querySelector('#switcherLink .optionText')
             .addEventListener('click', async () => {
-                chrome.runtime.sendMessage({'action': 'switch',}).then(params => {
-                    if (!params) return;
-                    window.location.hash = params;
-                    window.location.reload();
-                });
+                const params = await chrome.runtime.sendMessage({'action': 'switch'});
+                if (!params) return;
+                window.location.hash = params;
+                window.location.reload();
                 renderSwitchCard();
             });
         document
@@ -204,54 +203,48 @@ import { utils } from './utils.js';
         }
 
         if (globalCurrentSpace.sessionId) {
-            chrome.runtime.sendMessage(
-                {
-                    action: 'updateSessionName',
-                    deleteOld: true,
-                    sessionName: newName,
-                    sessionId: globalCurrentSpace.sessionId,
-                },
-                () => {}
-            );
+            chrome.runtime.sendMessage({
+                action: 'updateSessionName',
+                deleteOld: true,
+                sessionName: newName,
+                sessionId: globalCurrentSpace.sessionId,
+            });
         } else {
-            chrome.runtime.sendMessage(
-                {
-                    action: 'saveNewSession',
-                    deleteOld: true,
-                    sessionName: newName,
-                    windowId: globalCurrentSpace.windowId,
-                },
-                () => {}
-            );
+            chrome.runtime.sendMessage({
+                action: 'saveNewSession',
+                deleteOld: true,
+                sessionName: newName,
+                windowId: globalCurrentSpace.windowId,
+            });
         }
     }
 
-    /*
-     * SWITCHER VIEW
-     */
+/*
+ * SWITCHER VIEW
+ */
 
-    function renderSwitchCard() {
-        document.getElementById(
-            'popupContainer'
-        ).innerHTML = document.getElementById('switcherTemplate').innerHTML;
-        chrome.runtime.sendMessage({ action: 'requestAllSpaces' }, spaces => {
-            spacesRenderer.initialise(8, true);
-            spacesRenderer.renderSpaces(spaces);
+async function renderSwitchCard() {
+    document.getElementById(
+        'popupContainer'
+    ).innerHTML = document.getElementById('switcherTemplate').innerHTML;
+    
+    const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
+    spacesRenderer.initialise(8, true);
+    spacesRenderer.renderSpaces(spaces);
 
-            document.getElementById('spaceSelectForm').onsubmit = e => {
-                e.preventDefault();
-                handleSwitchAction(getSelectedSpace());
-            };
+    document.getElementById('spaceSelectForm').onsubmit = e => {
+        e.preventDefault();
+        handleSwitchAction(getSelectedSpace());
+    };
 
-            const allSpaceEls = document.querySelectorAll('.space');
-            Array.prototype.forEach.call(allSpaceEls, el => {
-                // eslint-disable-next-line no-param-reassign
-                el.onclick = () => {
-                    handleSwitchAction(el);
-                };
-            });
-        });
-    }
+    const allSpaceEls = document.querySelectorAll('.space');
+    Array.prototype.forEach.call(allSpaceEls, el => {
+        // eslint-disable-next-line no-param-reassign
+        el.onclick = () => {
+            handleSwitchAction(el);
+        };
+    });
+}
 
     function getSelectedSpace() {
         return document.querySelector('.space.selected');
@@ -325,7 +318,7 @@ import { utils } from './utils.js';
         nodes.activeSpaceTitle.innerHTML = globalSessionName || '(unnamed)';
         // selectSpace(nodes.activeSpace);
 
-        updateTabDetails();
+        await updateTabDetails();
 
         const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
         // remove currently visible space
@@ -346,58 +339,55 @@ import { utils } from './utils.js';
         }
     }
 
-    function updateTabDetails() {
-        let faviconSrc;
+async function updateTabDetails() {
+    let faviconSrc;
 
-        // if we are working with an open chrome tab
-        if (globalTabId.length > 0) {
-            chrome.runtime.sendMessage(
-                {
-                    action: 'requestTabDetail',
-                    tabId: globalTabId,
-                },
-                tab => {
-                    if (tab) {
-                        nodes.activeTabTitle.innerHTML = tab.title;
+    // if we are working with an open chrome tab
+    if (globalTabId.length > 0) {
+        const tab = await chrome.runtime.sendMessage({
+            action: 'requestTabDetail',
+            tabId: globalTabId,
+        });
+        
+        if (tab) {
+            nodes.activeTabTitle.innerHTML = tab.title;
 
-                        // try to get best favicon url path
-                        if (
-                            tab.favIconUrl &&
-                            tab.favIconUrl.indexOf('chrome://theme') < 0
-                        ) {
-                            faviconSrc = tab.favIconUrl;
-                        } else {
-                            // TODO(codedread): Fix this, it errors.
-                            // faviconSrc = `chrome://favicon/${tab.url}`;
-                        }
-                        nodes.activeTabFavicon.setAttribute('src', faviconSrc);
+            // try to get best favicon url path
+            if (
+                tab.favIconUrl &&
+                tab.favIconUrl.indexOf('chrome://theme') < 0
+            ) {
+                faviconSrc = tab.favIconUrl;
+            } else {
+                // TODO(codedread): Fix this, it errors.
+                // faviconSrc = `chrome://favicon/${tab.url}`;
+            }
+            nodes.activeTabFavicon.setAttribute('src', faviconSrc);
 
-                        nodes.moveInput.setAttribute(
-                            'placeholder',
-                            'Move tab to..'
-                        );
-
-                        // nodes.windowTitle.innerHTML = tab.title;
-                        // nodes.windowFavicon.setAttribute('href', faviconSrc);
-                    }
-                }
+            nodes.moveInput.setAttribute(
+                'placeholder',
+                'Move tab to..'
             );
 
-            // else if we are dealing with a url only
-        } else if (globalUrl) {
-            const cleanUrl =
-                globalUrl.indexOf('://') > 0
-                    ? globalUrl.substr(
-                          globalUrl.indexOf('://') + 3,
-                          globalUrl.length
-                      )
-                    : globalUrl;
-            nodes.activeTabTitle.innerHTML = cleanUrl;
-            nodes.activeTabFavicon.setAttribute('src', '/img/new.png');
-
-            nodes.moveInput.setAttribute('placeholder', 'Add tab to..');
+            // nodes.windowTitle.innerHTML = tab.title;
+            // nodes.windowFavicon.setAttribute('href', faviconSrc);
         }
+
+        // else if we are dealing with a url only
+    } else if (globalUrl) {
+        const cleanUrl =
+            globalUrl.indexOf('://') > 0
+                ? globalUrl.substr(
+                        globalUrl.indexOf('://') + 3,
+                        globalUrl.length
+                    )
+                : globalUrl;
+        nodes.activeTabTitle.innerHTML = cleanUrl;
+        nodes.activeTabFavicon.setAttribute('src', '/img/new.png');
+
+        nodes.moveInput.setAttribute('placeholder', 'Add tab to..');
     }
+}
 
     function handleSelectAction() {
         const selectedSpaceEl = document.querySelector('.space.selected');
