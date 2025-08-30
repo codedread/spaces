@@ -466,7 +466,7 @@ var IndexQuery = function(table, db, indexName) {
     };
 };
 
-var createSchema = function(e, schema, db) {
+function createSchema(e, schema, db) {
     if (typeof schema === 'function') {
         schema = schema();
     }
@@ -496,29 +496,46 @@ var createSchema = function(e, schema, db) {
             }
         }
     }
-};
+}
 
-var open = function(e, server, version, schema) {
+/**
+ * @param {Event} e 
+ * @param {string} server 
+ * @param {string} version 
+ * @param {Object} schema 
+ * @returns 
+ */
+function dbOpen(e, server, version, schema) {
     var db = e.target.result;
     var s = new Server(db, server);
     
     dbCache[server] = db;
 
     return Promise.resolve(s);
-};
+}
 
 const dbCache = {};
 
+/**
+ * @typedef {object} DbOpenOptions
+ * @property {string} server The name of the database.
+ * @property {number} version The version of the database.
+ * @property {object | function} schema The database schema.
+ */
+
 export const db = {
     version: '0.9.2',
-    /** @returns {Promise<Server>} */
+    /**
+     * @param {DbOpenOptions} options
+     * @returns {Promise<Server>}
+     */
     open(options) {
         /** @type {IDBOpenDBRequest} */
         var request;
 
         return new Promise((resolve, reject) => {
             if (dbCache[options.server]) {
-                open(
+                dbOpen(
                     {
                         target: {
                             result: dbCache[options.server],
@@ -535,7 +552,7 @@ export const db = {
                 );
 
                 request.onsuccess = function(e) {
-                    open(
+                    dbOpen(
                         e,
                         options.server,
                         options.version,
