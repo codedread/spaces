@@ -388,17 +388,16 @@ async function processMessage(request, sender, sendResponse) {
         case 'addLinkToNewSession':
             tabId = cleanParameter(request.tabId);
             if (request.sessionName && request.url) {
-                await handleAddLinkToNewSession(
+                const result = await handleAddLinkToNewSession(
                     request.url,
-                    request.sessionName,
-                    result => {
-                        if (result)
-                            updateSpacesWindow('addLinkToNewSession');
-
-                        // close the requesting tab (should be tab.html)
-                        closePopupWindow();
-                    }
+                    request.sessionName
                 );
+                if (result) {
+                    updateSpacesWindow('addLinkToNewSession');
+                }
+
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -1042,19 +1041,25 @@ async function handleDeleteSession(sessionId) {
     return spacesService.deleteSession(sessionId);
 }
 
-async function handleAddLinkToNewSession(url, sessionName, callback) {
+/**
+ * @param {string} url - The URL to add to the new session
+ * @param {string} sessionName - The name for the new session
+ * @returns {Promise<Session|null>} Promise that resolves to:
+ *   - Session object if the session was successfully created
+ *   - null if a session with that name already exists or creation failed
+ */
+async function handleAddLinkToNewSession(url, sessionName) {
     const session = await dbService.fetchSessionByName(sessionName);
     const newTabs = [{ url }];
 
     // if we found a session matching this name then return as an error as we are
     // supposed to be creating a new session with this name
     if (session) {
-        callback(false);
+        return null;
 
         // else create a new session with this name containing this url
     } else {
-        const result = await spacesService.saveNewSession(sessionName, newTabs, false);
-        callback(result);
+        return spacesService.saveNewSession(sessionName, newTabs, false);
     }
 }
 
