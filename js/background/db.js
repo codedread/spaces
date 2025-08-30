@@ -13,7 +13,6 @@ const transactionModes = {
     readwrite: 'readwrite',
 };
 
-const hasOwn = Object.prototype.hasOwnProperty;
 const defaultMapper = (value) => value;
 
 export class Server {
@@ -454,19 +453,15 @@ var IndexQuery = function(table, db, indexName) {
 /**
  * Creates the database schema.
  * @param {Event} e 
- * @param {*} schema 
- * @param {*} db 
+ * @param {object} schema The database schema object
+ * @param {IDBDatabase} db 
  */
 function createSchema(e, schema, db) {
-    if (typeof schema === 'function') {
-        schema = schema();
-    }
-
     for (var tableName in schema) {
         var table = schema[tableName];
         var store;
         if (
-            !hasOwn.call(schema, tableName) ||
+            !Object.hasOwn(schema, tableName) ||
             db.objectStoreNames.contains(tableName)
         ) {
             store = e.currentTarget.transaction.objectStore(tableName);
@@ -512,7 +507,7 @@ const dbCache = {};
  * @typedef {object} DbOpenOptions
  * @property {string} server The name of the database.
  * @property {number} version The version of the database.
- * @property {object | function} schema The database schema.
+ * @property {object} schema The database schema.
  */
 
 export const db = {
