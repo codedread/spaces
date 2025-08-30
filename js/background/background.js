@@ -177,8 +177,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     // Ensure spacesService is initialized before processing any message
-    spacesService.ensureInitialized().then(() => {
-        const result = processMessage(request, sender, sendResponse);
+    spacesService.ensureInitialized().then(async () => {
+        const result = await processMessage(request, sender, sendResponse);
         // If processMessage returns false, we need to handle that by not sending a response
         // But since we're in an async context, we can't change the outer return value
         // The key is that processMessage will call sendResponse() for true cases
@@ -190,7 +190,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
-function processMessage(request, sender, sendResponse) {
+async function processMessage(request, sender, sendResponse) {
     let sessionId;
     let windowId;
     let tabId;
@@ -198,35 +198,32 @@ function processMessage(request, sender, sendResponse) {
     // endpoints called by spaces.js
     switch (request.action) {
         case 'requestSessionPresence':
-            const sessionPresence = requestSessionPresence(request.sessionName);
+            const sessionPresence = await requestSessionPresence(request.sessionName);
             sendResponse(sessionPresence);
             return true;
 
         case 'requestSpaceFromWindowId':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
             if (windowId) {
-                requestSpaceFromWindowId(windowId).then(space => {
-                    sendResponse(space);
-                });
+                const space = await requestSpaceFromWindowId(windowId);
+                sendResponse(space);
             }
             return true;
 
         case 'requestCurrentSpace':
-            requestCurrentSpace().then(space => {
-                sendResponse(space);
-            });
+            const currentSpace = await requestCurrentSpace();
+            sendResponse(currentSpace);
             return true;
 
         case 'generatePopupParams':
-            generatePopupParams(request.action, request.tabUrl).then(params => {
-                sendResponse(params);
-            });
+            const params = await generatePopupParams(request.action, request.tabUrl);
+            sendResponse(params);
             return true;
 
         case 'loadSession':
-            sessionId = _cleanParameter(request.sessionId);
+            sessionId = cleanParameter(request.sessionId);
             if (sessionId) {
-                handleLoadSession(sessionId);
+                await handleLoadSession(sessionId);
                 sendResponse(true);
             }
             // close the requesting tab (should be spaces.html)
@@ -235,9 +232,9 @@ function processMessage(request, sender, sendResponse) {
             return true;
 
         case 'loadWindow':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
             if (windowId) {
-                handleLoadWindow(windowId);
+                await handleLoadWindow(windowId);
                 sendResponse(true);
             }
             // close the requesting tab (should be spaces.html)
@@ -246,9 +243,9 @@ function processMessage(request, sender, sendResponse) {
             return true;
 
         case 'loadTabInSession':
-            sessionId = _cleanParameter(request.sessionId);
+            sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.tabUrl) {
-                handleLoadSession(sessionId, request.tabUrl);
+                await handleLoadSession(sessionId, request.tabUrl);
                 sendResponse(true);
             }
             // close the requesting tab (should be spaces.html)
@@ -257,9 +254,9 @@ function processMessage(request, sender, sendResponse) {
             return true;
 
         case 'loadTabInWindow':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
             if (windowId && request.tabUrl) {
-                handleLoadWindow(windowId, request.tabUrl);
+                await handleLoadWindow(windowId, request.tabUrl);
                 sendResponse(true);
             }
             // close the requesting tab (should be spaces.html)
@@ -268,7 +265,7 @@ function processMessage(request, sender, sendResponse) {
             return true;
 
         case 'saveNewSession':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
             if (windowId && request.sessionName) {
                 handleSaveNewSession(
                     windowId,
@@ -292,14 +289,14 @@ function processMessage(request, sender, sendResponse) {
             return true; // allow async response
 
         case 'deleteSession':
-            sessionId = _cleanParameter(request.sessionId);
+            sessionId = cleanParameter(request.sessionId);
             if (sessionId) {
                 handleDeleteSession(sessionId, sendResponse);
             }
             return true;
 
         case 'updateSessionName':
-            sessionId = _cleanParameter(request.sessionId);
+            sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.sessionName) {
                 handleUpdateSessionName(
                     sessionId,
@@ -311,52 +308,50 @@ function processMessage(request, sender, sendResponse) {
             return true;
 
         case 'requestSpaceDetail':
-            windowId = _cleanParameter(request.windowId);
-            sessionId = _cleanParameter(request.sessionId);
+            windowId = cleanParameter(request.windowId);
+            sessionId = cleanParameter(request.sessionId);
 
             if (windowId) {
                 if (checkInternalSpacesWindows(windowId, false)) {
                     sendResponse(false);
                 } else {
-                    requestSpaceFromWindowId(windowId).then(space => {
-                        sendResponse(space);
-                    });
+                    const space = await requestSpaceFromWindowId(windowId);
+                    sendResponse(space);
                 }
             } else if (sessionId) {
-                requestSpaceFromSessionId(sessionId, sendResponse);
+                await requestSpaceFromSessionId(sessionId, sendResponse);
             }
             return true;
 
         // end points called by tag.js and switcher.js
         // note: some of these endpoints will close the requesting tab
         case 'requestAllSpaces':
-            requestAllSpaces(allSpaces => {
+            await requestAllSpaces(allSpaces => {
                 sendResponse(allSpaces);
             });
             return true;
 
         case 'requestTabDetail':
-            tabId = _cleanParameter(request.tabId);
+            tabId = cleanParameter(request.tabId);
             if (tabId) {
-                requestTabDetail(tabId).then(tab => {
-                    if (tab) {
-                        sendResponse(tab);
-                    } else {
-                        // close the requesting tab (should be tab.html)
-                        closePopupWindow();
-                    }
-                });
+                const tab = await requestTabDetail(tabId);
+                if (tab) {
+                    sendResponse(tab);
+                } else {
+                    // close the requesting tab (should be tab.html)
+                    await closePopupWindow();
+                }
             }
             return true;
 
         case 'requestShowSpaces':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
 
             // show the spaces tab in edit mode for the passed in windowId
             if (windowId) {
-                showSpacesOpenWindow(windowId, request.edit);
+                await showSpacesOpenWindow(windowId, request.edit);
             } else {
-                showSpacesOpenWindow();
+                await showSpacesOpenWindow();
             }
             return false;
 
@@ -374,28 +369,25 @@ function processMessage(request, sender, sendResponse) {
 
         case 'requestClose':
             // close the requesting tab (should be tab.html)
-            closePopupWindow();
+            await closePopupWindow();
             return false;
 
         case 'switchToSpace':
-            windowId = _cleanParameter(request.windowId);
-            sessionId = _cleanParameter(request.sessionId);
+            windowId = cleanParameter(request.windowId);
+            sessionId = cleanParameter(request.sessionId);
 
-            (async () => {
-                if (windowId) {
-                    await handleLoadWindow(windowId);
-                } else if (sessionId) {
-                    await handleLoadSession(sessionId);
-                }
-                sendResponse(true);
-            })();
-
+            if (windowId) {
+                await handleLoadWindow(windowId);
+            } else if (sessionId) {
+                await handleLoadSession(sessionId);
+            }
+            sendResponse(true);
             return true;
 
         case 'addLinkToNewSession':
-            tabId = _cleanParameter(request.tabId);
+            tabId = cleanParameter(request.tabId);
             if (request.sessionName && request.url) {
-                handleAddLinkToNewSession(
+                await handleAddLinkToNewSession(
                     request.url,
                     request.sessionName,
                     result => {
@@ -410,9 +402,9 @@ function processMessage(request, sender, sendResponse) {
             return false;
 
         case 'moveTabToNewSession':
-            tabId = _cleanParameter(request.tabId);
+            tabId = cleanParameter(request.tabId);
             if (request.sessionName && tabId) {
-                handleMoveTabToNewSession(
+                await handleMoveTabToNewSession(
                     tabId,
                     request.sessionName,
                     result => {
@@ -427,10 +419,10 @@ function processMessage(request, sender, sendResponse) {
             return false;
 
         case 'addLinkToSession':
-            sessionId = _cleanParameter(request.sessionId);
+            sessionId = cleanParameter(request.sessionId);
 
             if (sessionId && request.url) {
-                handleAddLinkToSession(request.url, sessionId, result => {
+                await handleAddLinkToSession(request.url, sessionId, result => {
                     if (result) updateSpacesWindow('addLinkToSession');
 
                     // close the requesting tab (should be tab.html)
@@ -440,11 +432,11 @@ function processMessage(request, sender, sendResponse) {
             return false;
 
         case 'moveTabToSession':
-            sessionId = _cleanParameter(request.sessionId);
-            tabId = _cleanParameter(request.tabId);
+            sessionId = cleanParameter(request.sessionId);
+            tabId = cleanParameter(request.tabId);
 
             if (sessionId && tabId) {
-                handleMoveTabToSession(tabId, sessionId, result => {
+                await handleMoveTabToSession(tabId, sessionId, result => {
                     if (result) updateSpacesWindow('moveTabToSession');
 
                     // close the requesting tab (should be tab.html)
@@ -454,10 +446,10 @@ function processMessage(request, sender, sendResponse) {
             return false;
 
         case 'addLinkToWindow':
-            windowId = _cleanParameter(request.windowId);
+            windowId = cleanParameter(request.windowId);
 
             if (windowId && request.url) {
-                handleAddLinkToWindow(request.url, windowId, result => {
+                await handleAddLinkToWindow(request.url, windowId, result => {
                     if (result) updateSpacesWindow('addLinkToWindow');
 
                     // close the requesting tab (should be tab.html)
@@ -467,11 +459,11 @@ function processMessage(request, sender, sendResponse) {
             return false;
 
         case 'moveTabToWindow':
-            windowId = _cleanParameter(request.windowId);
-            tabId = _cleanParameter(request.tabId);
+            windowId = cleanParameter(request.windowId);
+            tabId = cleanParameter(request.tabId);
 
             if (windowId && tabId) {
-                handleMoveTabToWindow(tabId, windowId, result => {
+                await handleMoveTabToWindow(tabId, windowId, result => {
                     if (result) updateSpacesWindow('moveTabToWindow');
 
                     // close the requesting tab (should be tab.html)
@@ -485,7 +477,12 @@ function processMessage(request, sender, sendResponse) {
     }
 }
 
-function _cleanParameter(param) {
+/**
+ * Ensures the parameter is a number.
+ * @param {string|number} param - The parameter to clean.
+ * @returns {number} - The cleaned parameter.
+ */
+function cleanParameter(param) {
     if (typeof param === 'number') {
         return param;
     }
