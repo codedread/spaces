@@ -123,9 +123,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
     if (checkInternalSpacesWindows(windowId, true)) return;
-    spacesService.handleWindowRemoved(windowId, true, () => {
+    const wasProcessed = await spacesService.handleWindowRemoved(windowId, true);
+    if (wasProcessed) {
         updateSpacesWindow('windows.onRemoved');
-    });
+    }
 
     // if this was the last window open and the spaces window is stil open
     // then close the spaces window also so that chrome exits fully

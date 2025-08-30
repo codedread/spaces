@@ -377,12 +377,22 @@ class SpacesService {
         }
     }
 
-    async handleWindowRemoved(windowId, markAsClosed, callback = noop) {
+    /**
+     * Handles window removal events by cleaning up session data and managing window state.
+     * Updates session associations and removes temporary sessions when windows are closed.
+     * 
+     * @param {number} windowId - The ID of the window that was removed
+     * @param {boolean} markAsClosed - Whether to mark this window as permanently closed
+     * @returns {Promise<boolean>} Promise that resolves to:
+     *   - true if the window removal was successfully processed
+     *   - false if the removal was ignored (duplicate event for same windowId)
+     */
+    async handleWindowRemoved(windowId, markAsClosed) {
         await this.ensureInitialized();
         
         // ignore subsequent windowRemoved events for the same windowId (each closing tab will try to call this)
         if (this.closedWindowIds[windowId]) {
-            callback();
+            return true;
         }
 
         if (debug) {
@@ -422,7 +432,7 @@ class SpacesService {
             }
         }
 
-        callback();
+        return true;
     }
 
     async handleWindowFocussed(windowId) {
