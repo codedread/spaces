@@ -278,9 +278,10 @@ async function processMessage(request, sender, sendResponse) {
 
         case 'importNewSession':
             if (request.urlList) {
-                handleImportNewSession(request.urlList, sendResponse);
+                const result = await handleImportNewSession(request.urlList);
+                sendResponse(result);
             }
-            return true; // allow async response
+            return true;
 
         case 'restoreFromBackup':
             if (request.space) {
@@ -993,7 +994,15 @@ async function handleRestoreFromBackup(space, deleteOld, callback) {
     callback(result);
 }
 
-async function handleImportNewSession(urlList, callback) {
+/**
+ * Imports a list of URLs as a new session with an auto-generated name.
+ * 
+ * @param {string[]} urlList - Array of URLs to import as tabs
+ * @returns {Promise<Session|null>} Promise that resolves to:
+ *   - Session object if successfully created
+ *   - null if session creation failed
+ */
+async function handleImportNewSession(urlList) {
     let tempName = 'Imported space: ';
     let count = 1;
 
@@ -1008,8 +1017,7 @@ async function handleImportNewSession(urlList, callback) {
     });
 
     // save session to database
-    const result = await spacesService.saveNewSession(tempName, tabList, false);
-    callback(result);
+    return spacesService.saveNewSession(tempName, tabList, false);
 }
 
 async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
