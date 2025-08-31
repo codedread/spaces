@@ -8,9 +8,8 @@
 
 import { dbService } from './dbService.js';
 import { spacesService } from './spacesService.js';
-
-/** @typedef {import('./common.js').SessionPresence} SessionPresence */
-/** @typedef {import('./common.js').Space} Space */
+import * as common from '../common.js';
+/** @typedef {common.Space} Space */
 
 // eslint-disable-next-line no-unused-vars, no-var
 let spacesPopupWindowId = false;
@@ -321,7 +320,8 @@ async function processMessage(request, sender, sendResponse) {
                     sendResponse(space);
                 }
             } else if (sessionId) {
-                await requestSpaceFromSessionId(sessionId, sendResponse);
+                const space = await requestSpaceFromSessionId(sessionId);
+                sendResponse(space);
             }
             return true;
 
@@ -781,16 +781,28 @@ async function requestSpaceFromWindowId(windowId) {
     }
 }
 
-async function requestSpaceFromSessionId(sessionId, callback) {
+/**
+ * Requests space details for a specific session ID.
+ * 
+ * @param {number} sessionId
+ * @returns {Promise<Space|null>} Promise that resolves to:
+ *   - Space object if session exists
+ *   - null if session not found
+ */
+async function requestSpaceFromSessionId(sessionId) {
     const session = await dbService.fetchSessionById(sessionId);
-
-    callback({
+    
+    if (!session) {
+        return null;
+    }
+    
+    return {
         sessionId: session.id,
         windowId: session.windowId,
         name: session.name,
         tabs: session.tabs,
         history: session.history,
-    });
+    };
 }
 
 /**

@@ -2,8 +2,6 @@
 
 import { db, Server } from './db.js';
 
-/** @typedef {import('./common.js').Space} Space */
-
 /**
  * @typedef Session
  * @property {number} id Auto-generated indexedDb object id
