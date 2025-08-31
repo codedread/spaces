@@ -285,9 +285,10 @@ async function processMessage(request, sender, sendResponse) {
 
         case 'restoreFromBackup':
             if (request.space) {
-                handleRestoreFromBackup(request.space, !!request.deleteOld, sendResponse);
+                const result = await handleRestoreFromBackup(request.space, !!request.deleteOld);
+                sendResponse(result);
             }
-            return true; // allow async response
+            return true;
 
         case 'deleteSession':
             sessionId = cleanParameter(request.sessionId);
@@ -966,7 +967,16 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) 
     callback(result);
 }
 
-async function handleRestoreFromBackup(space, deleteOld, callback) {
+/**
+ * Restores a session from backup data.
+ * 
+ * @param {Space} space - The space/session data to restore
+ * @param {boolean} deleteOld - Whether to delete existing session with same name
+ * @returns {Promise<Session|null>} Promise that resolves to:
+ *   - Session object if successfully restored
+ *   - null if session restoration failed or name conflict without deleteOld
+ */
+async function handleRestoreFromBackup(space, deleteOld) {
     const existingSession = space.name
         ? await dbService.fetchSessionByName(space.name)
         : false;
@@ -977,20 +987,14 @@ async function handleRestoreFromBackup(space, deleteOld, callback) {
             console.error(
                 `handleRestoreFromBackup: Session with name "${space.name}" already exists and deleteOld was not true.`
             );
-            callback(false);
-            return;
-
-                // if we choose to overwrite, delete the existing session
+            return null;
         }
+        
+        // if we choose to overwrite, delete the existing session
         await handleDeleteSession(existingSession.id);
     }
 
-    const result = await spacesService.saveNewSession(
-        space.name,
-        space.tabs,
-        false
-    );
-    callback(result);
+    return spacesService.saveNewSession(space.name, space.tabs, false);
 }
 
 /**
