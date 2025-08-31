@@ -909,4 +909,4 @@ function generateSessionHash(tabs) {
 export const spacesService = new SpacesService();
 
 // Export the cleanUrl function for testing
-export { cleanUrl };
+export { cleanUrl, generateSessionHash };
