@@ -301,12 +301,12 @@ async function processMessage(request, sender, sendResponse) {
         case 'updateSessionName':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.sessionName) {
-                handleUpdateSessionName(
+                const result = await handleUpdateSessionName(
                     sessionId,
                     request.sessionName,
-                    !!request.deleteOld,
-                    sendResponse
+                    !!request.deleteOld
                 );
+                sendResponse(result);
             }
             return true;
 
@@ -1023,7 +1023,17 @@ async function handleImportNewSession(urlList) {
     return spacesService.saveNewSession(tempName, tabList, false);
 }
 
-async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callback) {
+/**
+ * Updates the name of an existing session.
+ * 
+ * @param {number} sessionId - The ID of the session to rename
+ * @param {string} sessionName - The new name for the session
+ * @param {boolean} deleteOld - Whether to delete existing session with same name
+ * @returns {Promise<Session|false>} Promise that resolves to:
+ *   - Session object if successfully updated
+ *   - false if session update failed or name conflict without deleteOld
+ */
+async function handleUpdateSessionName(sessionId, sessionName, deleteOld) {
     // check to make sure session name doesn't already exist
     const existingSession = await dbService.fetchSessionByName(sessionName);
 
@@ -1033,15 +1043,14 @@ async function handleUpdateSessionName(sessionId, sessionName, deleteOld, callba
             console.error(
                 `handleUpdateSessionName: Session with name "${sessionName}" already exists and deleteOld was not true.`
             );
-            callback(false);
-            return;
-
-            // if we choose to override, then delete the existing session
+            return false;
         }
+        
+        // if we choose to override, then delete the existing session
         await handleDeleteSession(existingSession.id);
     }
-    const result = await spacesService.updateSessionName(sessionId, sessionName);
-    callback(result);
+    
+    return spacesService.updateSessionName(sessionId, sessionName) ?? false;
 }
 
 /**
