@@ -6,7 +6,11 @@
         "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
     },
     "jest": {
-        "transform": {},
+        "collectCoverageFrom": [
+            "js/**/*.js",
+            "!js/**/*.test.js",
+            "!**/node_modules/**"
+        ],
         "testEnvironment": "node"
     },
     "devDependencies": {
