@@ -907,3 +907,6 @@ function generateSessionHash(tabs) {
 
 // Export an instance of the SpacesService class
 export const spacesService = new SpacesService();
+
+// Export the cleanUrl function for testing
+export { cleanUrl };

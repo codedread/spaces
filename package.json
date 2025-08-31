@@ -1,4 +1,14 @@
 {
+    "type": "module",
+    "scripts": {
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+        "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+        "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    },
+    "jest": {
+        "transform": {},
+        "testEnvironment": "node"
+    },
     "devDependencies": {
         "eslint": "^6.7.1",
         "eslint-config-airbnb-base": "^14.0.0",
@@ -9,6 +19,7 @@
         "eslint-plugin-prettier": "^3.1.1",
         "eslint-plugin-promise": "^4.2.1",
         "eslint-plugin-standard": "^4.0.1",
+        "jest": "^29.7.0",
         "prettier": "^1.19.1"
     }
 }
