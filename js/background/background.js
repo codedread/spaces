@@ -741,7 +741,7 @@ async function requestTabDetail(tabId) {
  */
 async function requestCurrentSpace() {
     const window = await chrome.windows.getCurrent();
-    return await requestSpaceFromWindowId(window.id);
+    return requestSpaceFromWindowId(window.id);
 }
 
 /**
