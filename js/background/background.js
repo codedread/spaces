@@ -431,12 +431,11 @@ async function processMessage(request, sender, sendResponse) {
             tabId = cleanParameter(request.tabId);
 
             if (sessionId && tabId) {
-                await handleMoveTabToSession(tabId, sessionId, result => {
-                    if (result) updateSpacesWindow('moveTabToSession');
+                const result = await handleMoveTabToSession(tabId, sessionId);
+                if (result) updateSpacesWindow('moveTabToSession');
 
-                    // close the requesting tab (should be tab.html)
-                    closePopupWindow();
-                });
+                // close the requesting tab (should be tab.html)
+                closePopupWindow();
             }
             return false;
 
@@ -1161,11 +1160,19 @@ function handleAddLinkToWindow(url, windowId) {
     spacesService.queueWindowEvent(windowId);
 }
 
-async function handleMoveTabToSession(tabId, sessionId, callback) {
+/**
+ * Moves a tab to an existing session.
+ * 
+ * @param {number} tabId - The ID of the tab to move
+ * @param {number} sessionId - The ID of the session to move the tab to
+ * @returns {Promise<boolean>} Promise that resolves to:
+ *   - true if the tab was successfully moved
+ *   - false if the tab or session was not found or move failed
+ */
+async function handleMoveTabToSession(tabId, sessionId) {
     const tab = await requestTabDetail(tabId);
     if (!tab) {
-        callback(false);
-        return;
+        return false;
     }
 
     const session = await dbService.fetchSessionById(sessionId);
@@ -1174,27 +1181,22 @@ async function handleMoveTabToSession(tabId, sessionId, callback) {
     // if we have not found a session matching this name then return as an error as we are
     // supposed to be adding the tab to an existing session
     if (!session) {
-        callback(false);
-    } else {
-        // if session is currently open then move it directly
-        if (session.windowId) {
-            moveTabToWindow(tab, session.windowId);
-            callback(true);
-            return;
-        }
-
-        // else add tab to saved session in database
-        // remove tab from current window
-        chrome.tabs.remove(tab.id);
-
-        // update session in db
-        session.tabs = session.tabs.concat(newTabs);
-        const result = await spacesService.updateSessionTabs(
-            session.id,
-            session.tabs
-        );
-        callback(result);
+        return false;
     }
+    
+    // if session is currently open then move it directly
+    if (session.windowId) {
+        moveTabToWindow(tab, session.windowId);
+        return true;
+    }
+
+    // else add tab to saved session in database
+    // remove tab from current window
+    chrome.tabs.remove(tab.id);
+
+    // update session in db
+    session.tabs = session.tabs.concat(newTabs);
+    return !!spacesService.updateSessionTabs(session.id, session.tabs);
 }
 
 /**
