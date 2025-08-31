@@ -267,14 +267,14 @@ async function processMessage(request, sender, sendResponse) {
         case 'saveNewSession':
             windowId = cleanParameter(request.windowId);
             if (windowId && request.sessionName) {
-                handleSaveNewSession(
+                const result = await handleSaveNewSession(
                     windowId,
                     request.sessionName,
-                    !!request.deleteOld,
-                    sendResponse
+                    !!request.deleteOld
                 );
+                sendResponse(result);
             }
-            return true; // allow async response
+            return true;
 
         case 'importNewSession':
             if (request.urlList) {
@@ -942,7 +942,17 @@ async function focusOrLoadTabInWindow(window, tabUrl) {
     }
 }
 
-async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) {
+/**
+ * Saves a new session from the specified window.
+ * 
+ * @param {number} windowId - The ID of the window to save as a session
+ * @param {string} sessionName - The name for the new session
+ * @param {boolean} deleteOld - Whether to delete existing session with same name
+ * @returns {Promise<Session|false>} Promise that resolves to:
+ *   - Session object if successfully saved
+ *   - false if session save failed or name conflict without deleteOld
+ */
+async function handleSaveNewSession(windowId, sessionName, deleteOld) {
     const curWindow = await chrome.windows.get(windowId, { populate: true });
     const existingSession = await dbService.fetchSessionByName(sessionName);
 
@@ -952,8 +962,7 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) 
             console.error(
                 `handleSaveNewSession: Session with name "${sessionName}" already exists and deleteOld was not true.`
             );
-            callback(false);
-            return;
+            return false;
 
             // if we choose to overwrite, delete the existing session
         }
@@ -964,7 +973,7 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld, callback) 
         curWindow.tabs,
         curWindow.id
     );
-    callback(result);
+    return result ?? false;
 }
 
 /**
