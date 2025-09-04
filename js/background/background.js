@@ -14,7 +14,6 @@ import * as common from '../common.js';
 // eslint-disable-next-line no-unused-vars, no-var
 let spacesPopupWindowId = false;
 let spacesOpenWindowId = false;
-const noop = () => {};
 const debug = false;
 
 async function rediscoverWindowIds() {
