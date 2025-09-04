@@ -248,12 +248,10 @@ async function handleLoadSpace(sessionId, windowId) {
 }
 
 async function handleLoadTab(sessionId, windowId, tabUrl) {
-    const noop = () => {};
-
     if (sessionId) {
-        await performLoadTabInSession(sessionId, tabUrl, noop);
+        await performLoadTabInSession(sessionId, tabUrl);
     } else if (windowId) {
-        await performLoadTabInWindow(windowId, tabUrl, noop);
+        await performLoadTabInWindow(windowId, tabUrl);
     }
 }
 
