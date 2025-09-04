@@ -54,148 +54,172 @@ async function rediscoverWindowByUrl(storageKey, htmlFilename) {
     return false;
 }
 
-// runtime extension install listener
-chrome.runtime.onInstalled.addListener(details => {
-    console.log(`Extension installed: ${JSON.stringify(details)}`);
+export function initializeServiceWorker() {
+    console.log(`Initializing service worker...`);
 
-    if (details.reason === 'install') {
-        // eslint-disable-next-line no-console
-        console.log('This is a first install!');
-        showSpacesOpenWindow();
-    } else if (details.reason === 'update') {
-        const thisVersion = chrome.runtime.getManifest().version;
-        if (details.previousVersion !== thisVersion) {
+    chrome.runtime.onInstalled.addListener(details => {
+        console.log(`Extension installed: ${JSON.stringify(details)}`);
+
+        if (details.reason === 'install') {
             // eslint-disable-next-line no-console
-            console.log(
-                `Updated from ${details.previousVersion} to ${thisVersion}!`
-            );
-        }
-    }
-
-    chrome.contextMenus.create({
-        id: 'spaces-add-link',
-        title: 'Add link to space...',
-        contexts: ['link'],
-    });
-});
-
-// Handle Chrome startup - this is when window IDs get reassigned!
-chrome.runtime.onStartup.addListener(async () => {
-    await spacesService.clearWindowIdAssociations();
-    await spacesService.initialiseSpaces();
-    await rediscoverWindowIds();
-});
-
-// LISTENERS
-
-// add listeners for session monitoring
-chrome.tabs.onCreated.addListener(async (tab) => {
-    // this call to checkInternalSpacesWindows actually returns false when it should return true
-    // due to the event being called before the globalWindowIds get set. oh well, never mind.
-    if (checkInternalSpacesWindows(tab.windowId, false)) return;
-    // don't need this listener as the tabUpdated listener also fires when a new tab is created
-    // spacesService.handleTabCreated(tab);
-    updateSpacesWindow('tabs.onCreated');
-});
-
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-    if (checkInternalSpacesWindows(removeInfo.windowId, false)) return;
-    spacesService.handleTabRemoved(tabId, removeInfo, () => {
-        updateSpacesWindow('tabs.onRemoved');
-    });
-});
-
-chrome.tabs.onMoved.addListener(async (tabId, moveInfo) => {
-    if (checkInternalSpacesWindows(moveInfo.windowId, false)) return;
-    spacesService.handleTabMoved(tabId, moveInfo, () => {
-        updateSpacesWindow('tabs.onMoved');
-    });
-});
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (checkInternalSpacesWindows(tab.windowId, false)) return;
-
-    spacesService.handleTabUpdated(tab, changeInfo, () => {
-        updateSpacesWindow('tabs.onUpdated');
-    });
-});
-
-chrome.windows.onRemoved.addListener(async (windowId) => {
-    if (checkInternalSpacesWindows(windowId, true)) return;
-    const wasProcessed = await spacesService.handleWindowRemoved(windowId, true);
-    if (wasProcessed) {
-        updateSpacesWindow('windows.onRemoved');
-    }
-
-    // if this was the last window open and the spaces window is stil open
-    // then close the spaces window also so that chrome exits fully
-    // NOTE: this is a workaround for an issue with the chrome 'restore previous session' option
-    // if the spaces window is the only window open and you try to use it to open a space,
-    // when that space loads, it also loads all the windows from the window that was last closed
-    const windows = await chrome.windows.getAll({});
-    if (windows.length === 1 && spacesOpenWindowId) {
-        await chrome.windows.remove(spacesOpenWindowId);
-        spacesOpenWindowId = false;
-        await chrome.storage.local.remove('spacesOpenWindowId');
-    }
-});
-
-// don't need this listener as the tabUpdated listener also fires when a new window is created
-// chrome.windows.onCreated.addListener(function (window) {
-
-//     if (checkInternalSpacesWindows(window.id, false)) return;
-//     spacesService.handleWindowCreated(window);
-// });
-
-// add listeners for tab and window focus changes
-// when a tab or window is changed, close the move tab popup if it is open
-chrome.windows.onFocusChanged.addListener(async (windowId) => {
-    // Prevent a click in the popup on Ubunto or ChroneOS from closing the
-    // popup prematurely.
-    if (
-        windowId === chrome.windows.WINDOW_ID_NONE ||
-        windowId === spacesPopupWindowId
-    ) {
-        return;
-    }
-
-    if (!debug && spacesPopupWindowId) {
-        if (spacesPopupWindowId) {
-            await closePopupWindow();
-        }
-    }
-    
-    spacesService.handleWindowFocussed(windowId);
-});
-
-// add listeners for message requests from other extension pages (spaces.html & tab.html)
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (debug) {
-        // eslint-disable-next-line no-console
-        console.log(`listener fired: ${JSON.stringify(request)}`);
-    }
-
-    // Handle async processing
-    (async () => {
-        try {
-            // Ensure spacesService is initialized before processing any message
-            await spacesService.ensureInitialized();
-            
-            const response = await processMessage(request, sender);
-            if (response !== undefined) {
-                sendResponse(response);
+            console.log('This is a first install!');
+            showSpacesOpenWindow();
+        } else if (details.reason === 'update') {
+            const thisVersion = chrome.runtime.getManifest().version;
+            if (details.previousVersion !== thisVersion) {
+                // eslint-disable-next-line no-console
+                console.log(
+                    `Updated from ${details.previousVersion} to ${thisVersion}!`
+                );
             }
-        } catch (error) {
-            console.error('Error processing message:', error);
-            sendResponse(false);
         }
-    })();
-    
-    // We must return true synchronously to keep the message port open
-    // for our async sendResponse() calls
-    return true;
-});
+
+        chrome.contextMenus.create({
+            id: 'spaces-add-link',
+            title: 'Add link to space...',
+            contexts: ['link'],
+        });
+    });
+
+    // Handle Chrome startup - this is when window IDs get reassigned!
+    chrome.runtime.onStartup.addListener(async () => {
+        await spacesService.clearWindowIdAssociations();
+        await spacesService.initialiseSpaces();
+        await rediscoverWindowIds();
+    });
+
+    // LISTENERS
+
+    // add listeners for session monitoring
+    chrome.tabs.onCreated.addListener(async (tab) => {
+        // this call to checkInternalSpacesWindows actually returns false when it should return true
+        // due to the event being called before the globalWindowIds get set. oh well, never mind.
+        if (checkInternalSpacesWindows(tab.windowId, false)) return;
+        // don't need this listener as the tabUpdated listener also fires when a new tab is created
+        // spacesService.handleTabCreated(tab);
+        updateSpacesWindow('tabs.onCreated');
+    });
+
+    chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
+        if (checkInternalSpacesWindows(removeInfo.windowId, false)) return;
+        spacesService.handleTabRemoved(tabId, removeInfo, () => {
+            updateSpacesWindow('tabs.onRemoved');
+        });
+    });
+
+    chrome.tabs.onMoved.addListener(async (tabId, moveInfo) => {
+        if (checkInternalSpacesWindows(moveInfo.windowId, false)) return;
+        spacesService.handleTabMoved(tabId, moveInfo, () => {
+            updateSpacesWindow('tabs.onMoved');
+        });
+    });
+
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+        if (checkInternalSpacesWindows(tab.windowId, false)) return;
+
+        spacesService.handleTabUpdated(tab, changeInfo, () => {
+            updateSpacesWindow('tabs.onUpdated');
+        });
+    });
+
+    chrome.windows.onRemoved.addListener(async (windowId) => {
+        if (checkInternalSpacesWindows(windowId, true)) return;
+        const wasProcessed = await spacesService.handleWindowRemoved(windowId, true);
+        if (wasProcessed) {
+            updateSpacesWindow('windows.onRemoved');
+        }
+
+        // if this was the last window open and the spaces window is stil open
+        // then close the spaces window also so that chrome exits fully
+        // NOTE: this is a workaround for an issue with the chrome 'restore previous session' option
+        // if the spaces window is the only window open and you try to use it to open a space,
+        // when that space loads, it also loads all the windows from the window that was last closed
+        const windows = await chrome.windows.getAll({});
+        if (windows.length === 1 && spacesOpenWindowId) {
+            await chrome.windows.remove(spacesOpenWindowId);
+            spacesOpenWindowId = false;
+            await chrome.storage.local.remove('spacesOpenWindowId');
+        }
+    });
+
+    // don't need this listener as the tabUpdated listener also fires when a new window is created
+    // chrome.windows.onCreated.addListener(function (window) {
+
+    //     if (checkInternalSpacesWindows(window.id, false)) return;
+    //     spacesService.handleWindowCreated(window);
+    // });
+
+    // add listeners for tab and window focus changes
+    // when a tab or window is changed, close the move tab popup if it is open
+    chrome.windows.onFocusChanged.addListener(async (windowId) => {
+        // Prevent a click in the popup on Ubunto or ChroneOS from closing the
+        // popup prematurely.
+        if (
+            windowId === chrome.windows.WINDOW_ID_NONE ||
+            windowId === spacesPopupWindowId
+        ) {
+            return;
+        }
+
+        if (!debug && spacesPopupWindowId) {
+            if (spacesPopupWindowId) {
+                await closePopupWindow();
+            }
+        }
+        
+        spacesService.handleWindowFocussed(windowId);
+    });
+
+    // add listeners for message requests from other extension pages (spaces.html & tab.html)
+
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (debug) {
+            // eslint-disable-next-line no-console
+            console.log(`listener fired: ${JSON.stringify(request)}`);
+        }
+
+        // Handle async processing
+        (async () => {
+            try {
+                // Ensure spacesService is initialized before processing any message
+                await spacesService.ensureInitialized();
+                
+                const response = await processMessage(request, sender);
+                if (response !== undefined) {
+                    sendResponse(response);
+                }
+            } catch (error) {
+                console.error('Error processing message:', error);
+                sendResponse(false);
+            }
+        })();
+        
+        // We must return true synchronously to keep the message port open
+        // for our async sendResponse() calls
+        return true;
+    });
+
+    chrome.commands.onCommand.addListener(command => {
+        // handle showing the move tab popup (tab.html)
+        if (command === 'spaces-move') {
+            showSpacesMoveWindow();
+
+            // handle showing the switcher tab popup (switcher.html)
+        } else if (command === 'spaces-switch') {
+            showSpacesSwitchWindow();
+        }
+    });
+
+    chrome.contextMenus.onClicked.addListener(info => {
+        // handle showing the move tab popup (tab.html)
+        if (info.menuItemId === 'spaces-add-link') {
+            showSpacesMoveWindow(info.linkUrl);
+        }
+    });
+
+    console.log(`Initializing spacesService...`);
+    spacesService.initialiseSpaces();
+}
 
 /**
  * Processes incoming messages from extension pages and returns appropriate responses.
@@ -489,26 +513,6 @@ function cleanParameter(param) {
     }
     return parseInt(param, 10);
 }
-
-// add listeners for keyboard commands
-
-chrome.commands.onCommand.addListener(command => {
-    // handle showing the move tab popup (tab.html)
-    if (command === 'spaces-move') {
-        showSpacesMoveWindow();
-
-        // handle showing the switcher tab popup (switcher.html)
-    } else if (command === 'spaces-switch') {
-        showSpacesSwitchWindow();
-    }
-});
-
-chrome.contextMenus.onClicked.addListener(info => {
-    // handle showing the move tab popup (tab.html)
-    if (info.menuItemId === 'spaces-add-link') {
-        showSpacesMoveWindow(info.linkUrl);
-    }
-});
 
 function createShortcutsWindow() {
     chrome.tabs.create({ url: 'chrome://extensions/configureCommands' });
@@ -1250,5 +1254,5 @@ function moveTabToWindow(tab, windowId) {
     spacesService.queueWindowEvent(windowId);
 }
 
-console.log(`Initializing spacesService...`);
-spacesService.initialiseSpaces();
+// Exports for testing.
+export { cleanParameter };
