@@ -815,8 +815,9 @@ async function requestSpaceFromSessionId(sessionId) {
  * @returns {Promise<Space[]>} Promise that resolves to an array of Space objects
  */
 async function requestAllSpaces() {
-    const sessions = await dbService.fetchAllSessions();
-    const allSpaces = sessions
+    // Get all sessions from spacesService (includes both saved and temporary open window sessions)
+    const allSessions = await spacesService.getAllSessions();
+    const allSpaces = allSessions
         .map(session => {
             return { sessionId: session.id, ...session };
         })

@@ -13,10 +13,18 @@ const debug = false;
 const noop = () => {};
 
 class SpacesService {
+    /**
+     * Array containing all sessions - both saved sessions from database and temporary sessions for open windows.
+     * Saved sessions have an `id` property, while temporary sessions have `id: false` and represent
+     * open windows that don't match any saved session.
+     * @type {Array<Session>}
+     * @private
+     */
+    sessions = [];
+
     constructor() {
         this.tabHistoryUrlMap = {};
         this.closedWindowIds = {};
-        this.sessions = [];
         this.sessionUpdateTimers = {};
         this.historyQueue = [];
         this.eventQueueCount = 0;
@@ -137,7 +145,7 @@ class SpacesService {
         // First, check if there's already a session with this windowId (service worker reactivation case)
         let existingSession = null;
         try {
-            existingSession = await dbService.fetchSessionByWindowId(curWindow.id);
+            existingSession = await this._getSessionByWindowIdInternal(curWindow.id);
         } catch (error) {
             console.error('Error fetching session by windowId:', error);
         }
@@ -163,7 +171,7 @@ class SpacesService {
         }
 
         const sessionHash = generateSessionHash(curWindow.tabs);
-        const temporarySession = await dbService.fetchSessionByWindowId(
+        const temporarySession = await this._getSessionByWindowIdInternal(
             curWindow.id
         );
         
@@ -266,6 +274,50 @@ class SpacesService {
 
     setLastVersion(newVersion) {
         chrome.storage.local.set({'spacesVersion': JSON.stringify(newVersion)});
+    }
+
+    /**
+     * Get all sessions (includes both saved sessions and temporary open window sessions)
+     * @returns {Promise<Array>} Promise that resolves to a shallow copy of all sessions
+     */
+    async getAllSessions() {
+        await this.ensureInitialized();
+        return [...(this.sessions || [])];
+    }
+
+    /**
+     * Find a session by windowId, checking both in-memory sessions and database
+     * @param {number} windowId - The window ID to search for
+     * @returns {Session|null} The session object if found, null otherwise
+     */
+    async getSessionByWindowId(windowId) {
+        await this.ensureInitialized();
+        return await this._getSessionByWindowIdInternal(windowId);
+    }
+
+    /**
+     * Internal method to find a session by windowId without ensuring initialization
+     * Used during initialization to avoid circular dependencies
+     * @private
+     * @param {number} windowId - The window ID to search for
+     * @returns {Promise<Session|null>} The session object if found, null otherwise
+     */
+    async _getSessionByWindowIdInternal(windowId) {
+        // First check in-memory sessions (includes temporary sessions)
+        const memorySession = this.sessions.find(session => session.windowId === windowId);
+        if (memorySession) {
+            return memorySession;
+        }
+        
+        // If not found in memory, check database (for saved sessions)
+        // During initialization, avoid potential circular dependencies
+        if (this.initialized) {
+            const dbSession = await dbService.fetchSessionByWindowId(windowId);
+            return dbSession || null;
+        }
+        
+        // During initialization, only check what's already loaded in memory
+        return null;
     }
 
     // event listener functions for window and tab events
@@ -396,7 +448,7 @@ class SpacesService {
             clearTimeout(this.sessionUpdateTimers[windowId]);
         }
 
-        const session = await dbService.fetchSessionByWindowId(windowId);
+        const session = await this.getSessionByWindowId(windowId);
         if (session) {
             // if this is a saved session then just remove the windowId reference
             if (session.id) {
@@ -431,7 +483,7 @@ class SpacesService {
             return;
         }
 
-        const session = await dbService.fetchSessionByWindowId(windowId);
+        const session = await this.getSessionByWindowId(windowId);
         if (session) {
             session.lastAccess = new Date();
         }
@@ -522,7 +574,7 @@ class SpacesService {
         }
 
         // if window is associated with an open session then update session
-        const session = await dbService.fetchSessionByWindowId(windowId);
+        const session = await this.getSessionByWindowId(windowId);
 
         if (session) {
             if (debug) {
@@ -572,10 +624,10 @@ class SpacesService {
             }
         }
 
-        // if no session found, it must be a new window.
-        // if session found without session.id then it must be a temporary session
-        // check for sessionMatch
-        if (!session || !session.id) {
+        // if no session found, it must be a new window - check for sessionMatch
+        // Note: if session found without session.id, it's a temporary session and we should NOT
+        // call checkForSessionMatch as that would create duplicate temporary sessions
+        if (!session) {
             if (debug) {
                 // eslint-disable-next-line no-console
                 console.log('session check triggered');
@@ -734,7 +786,7 @@ class SpacesService {
 
         // check for a temporary session with this windowId
         if (windowId) {
-            session = await dbService.fetchSessionByWindowId(windowId);
+            session = await this.getSessionByWindowId(windowId);
         }
 
         // if no temporary session found with this windowId, then create one
