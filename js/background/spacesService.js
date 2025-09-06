@@ -68,7 +68,7 @@ class SpacesService {
 
             // then try to match current open windows with saved sessions
             for (const curWindow of windows) {
-                if (!this.filterInternalWindows(curWindow)) {
+                if (!filterInternalWindows(curWindow)) {
                     await this.checkForSessionMatchDuringInit(curWindow);
                 }
             }
@@ -127,22 +127,6 @@ class SpacesService {
         for (const tab of tabs) {
             this.tabHistoryUrlMap[tab.id] = tab.url;
         }
-    }
-
-    filterInternalWindows(curWindow) {
-        // sanity check to make sure window isnt an internal spaces window
-        if (
-            curWindow.tabs.length === 1 &&
-            curWindow.tabs[0].url.indexOf(chrome.runtime.id) >= 0
-        ) {
-            return true;
-        }
-
-        // also filter out popup or panel window types
-        if (curWindow.type === 'popup' || curWindow.type === 'panel') {
-            return true;
-        }
-        return false;
     }
 
     async checkForSessionMatchDuringInit(curWindow) {
@@ -522,7 +506,7 @@ class SpacesService {
             return false;
         }
 
-        if (!curWindow || this.filterInternalWindows(curWindow)) {
+        if (!curWindow || filterInternalWindows(curWindow)) {
             return false;
         }
 
@@ -874,6 +858,35 @@ function cleanUrl(url) {
 }
 
 /**
+ * Filters out internal Chrome extension windows that should be ignored by the Spaces extension.
+ * This includes windows containing only the Spaces extension's own pages, as well as popup
+ * and panel type windows.
+ * 
+ * @param {chrome.windows.Window} curWindow - The Chrome window object to check
+ * @returns {boolean} True if the window should be filtered out (ignored), false otherwise
+ * 
+ * @example
+ * filterInternalWindows({ tabs: [{ url: 'chrome-extension://abc123/spaces.html' }], type: 'normal' }) // returns true
+ * filterInternalWindows({ tabs: [{ url: 'https://example.com' }], type: 'popup' }) // returns true  
+ * filterInternalWindows({ tabs: [{ url: 'https://example.com' }], type: 'normal' }) // returns false
+ */
+function filterInternalWindows(curWindow) {
+    // sanity check to make sure window isnt an internal spaces window
+    if (
+        curWindow.tabs.length === 1 &&
+        curWindow.tabs[0].url.indexOf(chrome.runtime.id) >= 0
+    ) {
+        return true;
+    }
+
+    // also filter out popup or panel window types
+    if (curWindow.type === 'popup' || curWindow.type === 'panel') {
+        return true;
+    }
+    return false;
+}
+
+/**
  * Generates a unique hash for a browser session based on the URLs of its tabs.
  * This hash is used to match existing sessions when windows are reopened after Chrome restart.
  * The hash is created by concatenating all cleaned tab URLs and applying a 32-bit hash algorithm.
@@ -908,5 +921,5 @@ function generateSessionHash(tabs) {
 // Export an instance of the SpacesService class
 export const spacesService = new SpacesService();
 
-// Export the cleanUrl function for testing
-export { cleanUrl, generateSessionHash };
+// Export helper functions for testing
+export { cleanUrl, filterInternalWindows, generateSessionHash };
