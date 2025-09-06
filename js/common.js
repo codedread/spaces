@@ -21,4 +21,36 @@
  * @property {boolean} isOpen The session is currently open in a window.
  */
 
-export {}
+/**
+ * Extracts a parameter value from a URL's hash fragment.
+ * @param {string} key - The parameter name to extract
+ * @param {string} urlStr - The URL string to parse
+ * @returns {string|false} The parameter value, or false if not found
+ * 
+ * @example
+ * getHashVariable('id', 'https://example.com#id=123&name=test')
+ * // returns: '123'
+ */
+export function getHashVariable(key, urlStr) {
+    const valuesByKey = {};
+    const keyPairRegEx = /^(.+)=(.+)/;
+
+    if (!urlStr || urlStr.length === 0 || urlStr.indexOf('#') === -1) {
+        return false;
+    }
+
+    // extract hash component from url
+    const hashStr = urlStr.replace(/^[^#]+#+(.*)/, '$1');
+    if (hashStr.length === 0) {
+        return false;
+    }
+
+    hashStr.split('&').forEach(keyPair => {
+        if (keyPair && keyPair.match(keyPairRegEx)) {
+            valuesByKey[
+                keyPair.replace(keyPairRegEx, '$1')
+            ] = keyPair.replace(keyPairRegEx, '$2');
+        }
+    });
+    return valuesByKey[key] || false;
+}

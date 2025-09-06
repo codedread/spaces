@@ -1,5 +1,6 @@
 /* global chrome spacesRenderer */
 
+import { getHashVariable } from './common.js';
 import { spacesRenderer } from './spacesRenderer.js';
 import { utils } from './utils.js';
 
@@ -18,19 +19,19 @@ let globalSessionName;
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const url = utils.getHashVariable('url', window.location.href);
+    const url = getHashVariable('url', window.location.href);
     globalUrl = url !== '' ? decodeURIComponent(url) : false;
     const currentWindow = await chrome.windows.getCurrent({ populate: true });
     const windowId = currentWindow.id;
     globalWindowId = windowId !== '' ? windowId : false;
-    globalTabId = utils.getHashVariable('tabId', window.location.href);
-    const sessionName = utils.getHashVariable(
+    globalTabId = getHashVariable('tabId', window.location.href);
+    const sessionName = getHashVariable(
         'sessionName',
         window.location.href
     );
     globalSessionName =
         sessionName && sessionName !== 'false' ? sessionName : false;
-    const action = utils.getHashVariable('action', window.location.href);
+    const action = getHashVariable('action', window.location.href);
 
     const requestSpacePromise = globalWindowId
         ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
@@ -94,7 +95,7 @@ function renderCommon() {
 }
 
 function handleCloseAction() {
-    const opener = utils.getHashVariable('opener', window.location.href);
+    const opener = getHashVariable('opener', window.location.href);
     if (opener && opener === 'bg') {
         chrome.runtime.sendMessage({
             action: 'requestClose',

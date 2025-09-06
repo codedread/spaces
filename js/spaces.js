@@ -1,5 +1,6 @@
 /* global chrome */
 
+import { getHashVariable } from './common.js';
 import { utils } from './utils.js';
 
 const UNSAVED_SESSION_NAME = 'Unnamed window';
@@ -621,31 +622,6 @@ function reroute(sessionId, windowId, forceRerender) {
     }
 }
 
-function getVariableFromHash(key) {
-    if (window.location.hash.length > 0) {
-        const hash = window.location.hash.substr(
-            1,
-            window.location.hash.length
-        );
-        const pairs = hash.split('&');
-
-        let matchedVal;
-        const match = pairs.some(curPair => {
-            const [curKey, curVal] = curPair.split('=');
-            if (curKey === key) {
-                matchedVal = curVal;
-                return true;
-            }
-            return false;
-        });
-
-        if (match) {
-            return matchedVal;
-        }
-    }
-    return false;
-}
-
 async function updateSpacesList(spaces) {
     // if spaces passed in then re-render immediately
     if (spaces) {
@@ -662,9 +638,9 @@ async function updateSpacesList(spaces) {
 }
 
 async function updateSpaceDetail(useCachedSpace) {
-    const sessionId = getVariableFromHash('sessionId');
-    const windowId = getVariableFromHash('windowId');
-    const editMode = getVariableFromHash('editMode');
+    const sessionId = getHashVariable('sessionId', window.location.href);
+    const windowId = getHashVariable('windowId', window.location.href);
+    const editMode = getHashVariable('editMode', window.location.href);
 
     // use cached currently selected space
     if (useCachedSpace) {
