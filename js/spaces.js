@@ -310,6 +310,8 @@ async function handleNameSave() {
 
     const canOverwrite = await utils.checkSessionOverwrite(newName);
     if (!canOverwrite) {
+        updateNameForm(globalSelectedSpace);
+        toggleNameEditMode(false);
         return;
     }
 

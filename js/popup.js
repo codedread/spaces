@@ -200,6 +200,8 @@ async function handleNameSave() {
 
     const canOverwrite = await utils.checkSessionOverwrite(newName);
     if (!canOverwrite) {
+        inputEl.value = globalCurrentSpace.name || UNSAVED_SESSION;
+        inputEl.blur();
         return;
     }
 
