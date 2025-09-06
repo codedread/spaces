@@ -430,14 +430,6 @@ async function handleExport() {
     link.click();
 }
 
-function normaliseTabUrl(url) {
-    let normalisedUrl = url;
-    if (url.indexOf('suspended.html') > 0 && url.indexOf('uri=') > 0) {
-        normalisedUrl = url.substring(url.indexOf('uri=') + 4, url.length);
-    }
-    return normalisedUrl;
-}
-
 // SERVICES
 
 /** @returns {Promise<Space[]>} */
@@ -712,40 +704,74 @@ function addDuplicateMetadata(space) {
     });
 }
 
-window.onload = () => {
-    // initialise global handles to key elements (singletons)
-    nodes.home = document.getElementById('spacesHome');
-    nodes.openSpaces = document.getElementById('openSpaces');
-    nodes.closedSpaces = document.getElementById('closedSpaces');
-    nodes.activeTabs = document.getElementById('activeTabs');
-    nodes.historicalTabs = document.getElementById('historicalTabs');
-    nodes.spaceDetailContainer = document.querySelector(
-        '.content .contentBody'
-    );
-    nodes.nameForm = document.querySelector('#nameForm');
-    nodes.nameFormDisplay = document.querySelector('#nameForm span');
-    nodes.nameFormInput = document.querySelector('#nameForm input');
-    nodes.actionSwitch = document.getElementById('actionSwitch');
-    nodes.actionOpen = document.getElementById('actionOpen');
-    nodes.actionEdit = document.getElementById('actionEdit');
-    nodes.actionExport = document.getElementById('actionExport');
-    nodes.actionBackup = document.getElementById('actionBackup');
-    nodes.actionDelete = document.getElementById('actionDelete');
-    nodes.actionImport = document.getElementById('actionImport');
-    nodes.banner = document.getElementById('banner');
-    nodes.modalBlocker = document.querySelector('.blocker');
-    nodes.modalContainer = document.querySelector('.modal');
-    nodes.modalInput = document.getElementById('importTextArea');
-    nodes.modalButton = document.getElementById('importBtn');
+/**
+ * Initialize the spaces window.
+ * This function should be called from the HTML page after the DOM is loaded.
+ */
+// Auto-initialize when loaded in browser context
+if (typeof window !== 'undefined') {
+    window.onload = () => {
+        // initialise global handles to key elements (singletons)
+        nodes.home = document.getElementById('spacesHome');
+        nodes.openSpaces = document.getElementById('openSpaces');
+        nodes.closedSpaces = document.getElementById('closedSpaces');
+        nodes.activeTabs = document.getElementById('activeTabs');
+        nodes.historicalTabs = document.getElementById('historicalTabs');
+        nodes.spaceDetailContainer = document.querySelector(
+            '.content .contentBody'
+        );
+        nodes.nameForm = document.querySelector('#nameForm');
+        nodes.nameFormDisplay = document.querySelector('#nameForm span');
+        nodes.nameFormInput = document.querySelector('#nameForm input');
+        nodes.actionSwitch = document.getElementById('actionSwitch');
+        nodes.actionOpen = document.getElementById('actionOpen');
+        nodes.actionEdit = document.getElementById('actionEdit');
+        nodes.actionExport = document.getElementById('actionExport');
+        nodes.actionBackup = document.getElementById('actionBackup');
+        nodes.actionDelete = document.getElementById('actionDelete');
+        nodes.actionImport = document.getElementById('actionImport');
+        nodes.banner = document.getElementById('banner');
+        nodes.modalBlocker = document.querySelector('.blocker');
+        nodes.modalContainer = document.querySelector('.modal');
+        nodes.modalInput = document.getElementById('importTextArea');
+        nodes.modalButton = document.getElementById('importBtn');
 
-    nodes.home.setAttribute('href', chrome.runtime.getURL('spaces.html'));
+        nodes.home.setAttribute('href', chrome.runtime.getURL('spaces.html'));
 
-    // initialise event listeners for static elements
-    addEventListeners();
+        // initialise event listeners for static elements
+        addEventListeners();
 
-    // render side nav
-    updateSpacesList();
+        // render side nav
+        updateSpacesList();
 
-    // render main content
-    updateSpaceDetail();
-};
+        // render main content
+        updateSpaceDetail();
+    };
+}
+
+// Module-level helper functions.
+
+/**
+ * Extracts the original URL from a Great Suspender extension suspended tab URL.
+ * Great Suspender URLs have the format: chrome-extension://id/suspended.html?uri=originalUrl
+ * 
+ * @param {string} url - The URL to normalize (should be a string)
+ * @returns {string} The original URL if it's a suspended URL, otherwise returns the input unchanged
+ * 
+ * @example
+ * normaliseTabUrl('chrome-extension://abc/suspended.html?uri=https://example.com')
+ * // returns: 'https://example.com'
+ * 
+ * normaliseTabUrl('https://example.com')
+ * // returns: 'https://example.com'
+ */
+function normaliseTabUrl(url) {
+    let normalisedUrl = url;
+    if (url.indexOf('suspended.html') > 0 && url.indexOf('uri=') > 0) {
+        normalisedUrl = url.substring(url.indexOf('uri=') + 4, url.length);
+    }
+    return normalisedUrl;
+}
+
+// Export for testing
+export { normaliseTabUrl };
