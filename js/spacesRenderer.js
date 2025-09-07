@@ -1,3 +1,5 @@
+import { escapeHtml } from './utils.js';
+
 // eslint-disable-next-line no-var
 export const spacesRenderer = {
     nodes: {},
@@ -150,11 +152,11 @@ export const spacesRenderer = {
         if (!count) return '';
         const firstTitle = space.tabs[0].title;
         if (count === 1) {
-            return `[${firstTitle}]`;
+            return `[${escapeHtml(firstTitle)}]`;
         }
         return firstTitle.length > 30
-            ? `[${firstTitle.slice(0, 21)}&hellip;] +${count - 1} more`
-            : `[${firstTitle}] +${count - 1} more`;
+            ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
+            : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
     },
 
     getTabDetailsString(space) {

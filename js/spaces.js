@@ -1,7 +1,7 @@
 /* global chrome */
 
 import { getHashVariable } from './common.js';
-import { utils } from './utils.js';
+import { checkSessionOverwrite, escapeHtml } from './utils.js';
 
 const UNSAVED_SESSION_NAME = 'Unnamed window';
 const UNSAVED_SESSION = `<em>${UNSAVED_SESSION_NAME}</em>`;
@@ -41,7 +41,7 @@ function renderSpaceListEl(space) {
     linkEl.setAttribute('href', hash);
 
     if (space.name) {
-        linkEl.innerHTML = space.name;
+        linkEl.innerHTML = escapeHtml(space.name);
     } else {
         linkEl.innerHTML = UNSAVED_SESSION;
     }
@@ -86,7 +86,7 @@ function renderSpaceDetail(space, editMode) {
 function updateNameForm(space) {
     if (space && space.name) {
         nodes.nameFormInput.value = space.name;
-        nodes.nameFormDisplay.innerHTML = space.name;
+        nodes.nameFormDisplay.innerHTML = escapeHtml(space.name);
     } else {
         nodes.nameFormInput.value = '';
         if (space) {
@@ -163,7 +163,7 @@ function renderTabListEl(tab, space) {
     }
     faviconEl.setAttribute('src', faviconSrc);
 
-    linkEl.innerHTML = tab.title ? tab.title : tab.url;
+    linkEl.innerHTML = escapeHtml(tab.title ?? tab.url);
     linkEl.setAttribute('href', tab.url);
     linkEl.setAttribute('target', '_blank');
 
@@ -308,7 +308,7 @@ async function handleNameSave() {
         return;
     }
 
-    const canOverwrite = await utils.checkSessionOverwrite(newName);
+    const canOverwrite = await checkSessionOverwrite(newName);
     if (!canOverwrite) {
         updateNameForm(globalSelectedSpace);
         toggleNameEditMode(false);
@@ -524,7 +524,7 @@ async function performSessionImport(urlList) {
 /** @returns {Promise<void>} */
 async function performRestoreFromBackup(spaces) {
     for (const space of spaces) {
-        const canOverwrite = await utils.checkSessionOverwrite(space.name);
+        const canOverwrite = await checkSessionOverwrite(space.name);
         if (!canOverwrite) {
             continue;
         }

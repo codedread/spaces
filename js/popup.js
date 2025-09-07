@@ -2,7 +2,7 @@
 
 import { getHashVariable } from './common.js';
 import { spacesRenderer } from './spacesRenderer.js';
-import { utils } from './utils.js';
+import { checkSessionOverwrite, escapeHtml } from './utils.js';
 
 const UNSAVED_SESSION = '(unnamed window)';
 const NO_HOTKEY = 'no hotkey set';
@@ -198,7 +198,7 @@ async function handleNameSave() {
         return;
     }
 
-    const canOverwrite = await utils.checkSessionOverwrite(newName);
+    const canOverwrite = await checkSessionOverwrite(newName);
     if (!canOverwrite) {
         inputEl.value = globalCurrentSpace.name || UNSAVED_SESSION;
         inputEl.blur();
@@ -318,7 +318,7 @@ async function renderMoveCard() {
 
     // update currentSpaceDiv
     // nodes.windowTitle.innerHTML = "Current space: " + (globalSessionName ? globalSessionName : 'unnamed');
-    nodes.activeSpaceTitle.innerHTML = globalSessionName || '(unnamed)';
+    nodes.activeSpaceTitle.innerHTML = escapeHtml(globalSessionName) || '(unnamed)';
     // selectSpace(nodes.activeSpace);
 
     await updateTabDetails();
@@ -353,7 +353,7 @@ async function updateTabDetails() {
         });
         
         if (tab) {
-            nodes.activeTabTitle.innerHTML = tab.title;
+            nodes.activeTabTitle.innerHTML = escapeHtml(tab.title);
 
             // try to get best favicon url path
             if (
@@ -385,7 +385,7 @@ async function updateTabDetails() {
                         globalUrl.length
                     )
                 : globalUrl;
-        nodes.activeTabTitle.innerHTML = cleanUrl;
+        nodes.activeTabTitle.innerHTML = escapeHtml(cleanUrl);
         nodes.activeTabFavicon.setAttribute('src', '/img/new.png');
 
         nodes.moveInput.setAttribute('placeholder', 'Add tab to..');

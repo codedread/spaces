@@ -1,10 +1,13 @@
-/*
- * common.js
+/**
+ * @fileoverview Shared utilities and types for the Spaces Chrome extension.
+ * 
+ * This module contains functions and type definitions that are used by both
+ * client-side code (popup, spaces window, etc.) and background scripts.
+ * Client-side only utilities should be placed in utils.js instead.
+ * 
  * Licensed under the MIT License
  * Copyright (C) 2025 by the Contributors.
  */
-
-/** Common types shared between background and client code. */
 
 /**
  * @typedef Space
