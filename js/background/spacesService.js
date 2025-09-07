@@ -77,7 +77,7 @@ class SpacesService {
             // then try to match current open windows with saved sessions
             for (const curWindow of windows) {
                 if (!filterInternalWindows(curWindow)) {
-                    await this.checkForSessionMatchDuringInit(curWindow);
+                    await this._checkForSessionMatchDuringInit(curWindow);
                 }
             }
             
@@ -137,7 +137,16 @@ class SpacesService {
         }
     }
 
-    async checkForSessionMatchDuringInit(curWindow) {
+    /**
+     * Checks for session matches during initialization, handling both service worker reactivation
+     * and Chrome restart scenarios. First checks for existing sessions by windowId, then falls
+     * back to hash matching if none found.
+     * 
+     * @private
+     * @param {chrome.windows.Window} curWindow - Chrome window object with tabs array
+     * @returns {Promise<void>} Resolves when initialization matching completes
+     */
+    async _checkForSessionMatchDuringInit(curWindow) {
         if (!curWindow.tabs || curWindow.tabs.length === 0) {
             return;
         }
@@ -162,20 +171,41 @@ class SpacesService {
         }
 
         // If no existing session, fall back to hash matching (Chrome restart case)
-        await this.checkForSessionMatch(curWindow);
+        await this._ensureWindowHasSession(curWindow);
     }
 
-    async checkForSessionMatch(curWindow) {
+    /**
+     * Ensures a window has an associated session using multiple strategies:
+     * 1. Checks for existing session by windowId (returns early if found)
+     * 2. Attempts hash-based matching with saved sessions (links if match found)
+     * 3. Creates temporary session as fallback (if no existing session or match)
+     * 
+     * @private
+     * @param {chrome.windows.Window} curWindow - Chrome window object with tabs array
+     * @returns {Promise<void>} Resolves when session association is complete
+     */
+    async _ensureWindowHasSession(curWindow) {
         if (!curWindow.tabs || curWindow.tabs.length === 0) {
             return;
         }
 
+        // Double-check that a session doesn't already exist for this window
+        // This is an additional safety check to prevent race conditions
+        const existingSession = this.sessions.find(session => session.windowId === curWindow.id);
+        if (existingSession) {
+            if (debug) {
+                // eslint-disable-next-line no-console
+                console.log(
+                    `ensureWindowHasSession: Session already exists for window ${curWindow.id}, skipping creation`
+                );
+            }
+            return;
+        }
+
+        // Generate hash from current window's tabs to find matching saved sessions
         const sessionHash = generateSessionHash(curWindow.tabs);
-        const temporarySession = await this._getSessionByWindowIdInternal(
-            curWindow.id
-        );
         
-        // Find matching session by hash (closedOnly = true)
+        // Find matching session by hash (closedOnly = true - sessions with no windowId)
         let matchingSession = false;
         try {
             const sessions = await dbService.fetchAllSessions();
@@ -197,10 +227,7 @@ class SpacesService {
             }
 
             this.matchSessionToWindow(matchingSession, curWindow);
-        }
-
-        // if no match found and this window does not already have a temporary session
-        if (!matchingSession && !temporarySession) {
+        } else {
             if (debug) {
                 // eslint-disable-next-line no-console
                 console.log(
@@ -209,7 +236,7 @@ class SpacesService {
             }
 
             // create a new temporary session for this window (with no sessionId or name)
-            this.createTemporaryUnmatchedSession(curWindow);
+            this._createTemporaryUnmatchedSession(curWindow);
         }
     }
 
@@ -239,7 +266,62 @@ class SpacesService {
         }
     }
 
-    async createTemporaryUnmatchedSession(curWindow) {
+    /**
+     * Safely adds a session to this.sessions array, preventing duplicates.
+     * For saved sessions (with id), prevents duplicates by id.
+     * For any session with windowId, prevents duplicates by windowId.
+     * 
+     * @private
+     * @param {Session} newSession - The session to add
+     * @returns {boolean} True if session was added, false if duplicate was prevented
+     */
+    _addSessionSafely(newSession) {
+        // For saved sessions (with id), check for ID duplicates
+        if (newSession.id) {
+            const existingSession = this.sessions.find(session => session.id === newSession.id);
+            if (existingSession) {
+                console.error(
+                    `_addSessionSafely: Attempted to add duplicate session with id ${newSession.id}. This should not happen!`
+                );
+                return false;
+            }
+        }
+        
+        // For any session with windowId, check for windowId duplicates
+        if (newSession.windowId) {
+            const existingSession = this.sessions.find(session => session.windowId === newSession.windowId);
+            if (existingSession) {
+                if (debug) {
+                    // eslint-disable-next-line no-console
+                    console.log(
+                        `_addSessionSafely: Session already exists for window ${newSession.windowId}, skipping addition`
+                    );
+                }
+                return false;
+            }
+        }
+        
+        // Safe to add - no duplicate found
+        this.sessions.push(newSession);
+        return true;
+    }
+
+    /**
+     * Creates a temporary session for an unmatched window that doesn't correspond to any saved session.
+     * Temporary sessions have `id: false` and represent open windows that haven't been saved as sessions yet.
+     * Uses centralized duplicate prevention to ensure no duplicate sessions are created for the same windowId.
+     * 
+     * @private
+     * @param {chrome.windows.Window} curWindow - The Chrome window object to create a temporary session for
+     * @returns {boolean} True if the temporary session was successfully created, false if duplicate was prevented
+     * 
+     * @example
+     * // Internal usage only
+     * const window = { id: 123, tabs: [{ url: 'https://example.com' }] };
+     * const created = this._createTemporaryUnmatchedSession(window);
+     * console.log(created); // true if session created, false if duplicate prevented
+     */
+    _createTemporaryUnmatchedSession(curWindow) {
         if (debug) {
             // eslint-disable-next-line no-console
             console.dir(this.sessions);
@@ -251,7 +333,7 @@ class SpacesService {
 
         const sessionHash = generateSessionHash(curWindow.tabs);
 
-        this.sessions.push({
+        const newSession = {
             id: false,
             windowId: curWindow.id,
             sessionHash,
@@ -259,7 +341,10 @@ class SpacesService {
             tabs: curWindow.tabs,
             history: [],
             lastAccess: new Date(),
-        });
+        };
+
+        // Use centralized method to prevent duplicates
+        return this._addSessionSafely(newSession);
     }
 
     // local storage getters/setters
@@ -624,15 +709,15 @@ class SpacesService {
             }
         }
 
-        // if no session found, it must be a new window - check for sessionMatch
+        // if no session found, it must be a new window - ensure it has a session
         // Note: if session found without session.id, it's a temporary session and we should NOT
-        // call checkForSessionMatch as that would create duplicate temporary sessions
+        // call _ensureWindowHasSession as that would create duplicate temporary sessions
         if (!session) {
             if (debug) {
                 // eslint-disable-next-line no-console
                 console.log('session check triggered');
             }
-            this.checkForSessionMatch(curWindow);
+            this._ensureWindowHasSession(curWindow);
         }
         return true;
     }
@@ -767,12 +852,15 @@ class SpacesService {
      * If a temporary session exists for the given windowId, it will be converted to a permanent session.
      * Otherwise, a new session is created and added to the sessions cache.
      * 
+     * IMPORTANT: This method only works with temporary sessions (id: false). It will reject any 
+     * attempt to "create" a session that already has a saved ID to prevent data corruption.
+     * 
      * @param {string} sessionName - The name for the new session
      * @param {Array<Object>} tabs - Array of tab objects containing URL and other tab properties
      * @param {number|false} windowId - The window ID to associate with this session, or false for no association
      * @returns {Promise<Session|null>} Promise that resolves to:
      *   - Session object with id property if successfully created
-     *   - null if session creation failed or no tabs were provided
+     *   - null if session creation failed, no tabs were provided, or attempted on already saved session
      */
     async saveNewSession(sessionName, tabs, windowId) {
         await this.ensureInitialized();
@@ -786,16 +874,36 @@ class SpacesService {
 
         // check for a temporary session with this windowId
         if (windowId) {
-            session = await this.getSessionByWindowId(windowId);
+            const existingSession = await this.getSessionByWindowId(windowId);
+            if (existingSession) {
+                // If it's a saved session, reject immediately to prevent data corruption
+                if (existingSession.id) {
+                    console.error('Cannot create new session: window already has a saved session');
+                    return null;
+                }
+                // Only use the session if it's temporary (no id)
+                session = existingSession;
+            }
         }
 
-        // if no temporary session found with this windowId, then create one
+        // if no existing session found, create a new one
         if (!session) {
             session = {
                 windowId,
                 history: [],
             };
-            this.sessions.push(session);
+            // Use centralized method to prevent duplicates (protects against race conditions)
+            const wasAdded = this._addSessionSafely(session);
+            if (!wasAdded) {
+                // Race condition: another async operation created a session for this windowId
+                // Retrieve the session that was created by the other operation
+                const raceConditionSession = await this.getSessionByWindowId(windowId);
+                if (!raceConditionSession) {
+                    console.error('Race condition detected but failed to retrieve the competing session');
+                    return null;
+                }
+                session = raceConditionSession;
+            }
         }
 
         // update temporary session details
@@ -804,7 +912,7 @@ class SpacesService {
         session.tabs = tabs;
         session.lastAccess = new Date();
 
-        // save session to db
+        // save session to db - this should only be called on temporary sessions (id: false)
         try {
             const savedSession = await dbService.createSession(session);
             if (savedSession) {
