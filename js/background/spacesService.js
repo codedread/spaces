@@ -98,8 +98,8 @@ class SpacesService {
             for (const session of sessions) {
                 if (session.windowId) {
                     session.windowId = false;
-                    // Persist the cleared windowId to database
-                    await dbService.updateSession(session);
+                    // Persist the cleared windowId to database and update memory
+                    await this._updateSessionSync(session);
                 }
             }
             
@@ -122,7 +122,7 @@ class SpacesService {
             session.sessionHash = generateSessionHash(
                 session.tabs
             );
-            await dbService.updateSession(session);
+            await this._updateSessionSync(session);
         }
     }
 
@@ -248,8 +248,8 @@ class SpacesService {
             if (this.sessions[i].windowId === curWindow.id) {
                 if (this.sessions[i].id) {
                     this.sessions[i].windowId = false;
-                    // Persist the cleared windowId to database
-                    await dbService.updateSession(this.sessions[i]);
+                    // Persist the cleared windowId to database with sync
+                    await this._updateSessionSync(this.sessions[i]);
                 } else {
                     this.sessions.splice(i, 1);
                 }
@@ -260,9 +260,9 @@ class SpacesService {
         // eslint-disable-next-line no-param-reassign
         session.windowId = curWindow.id;
         
-        // Persist the new windowId association to database
+        // Persist the new windowId association to database with automatic sync
         if (session.id) {
-            await dbService.updateSession(session);
+            await this._updateSessionSync(session);
         }
     }
 
@@ -538,8 +538,8 @@ class SpacesService {
             // if this is a saved session then just remove the windowId reference
             if (session.id) {
                 session.windowId = false;
-                // Persist the cleared windowId to database
-                await dbService.updateSession(session);
+                // Persist the cleared windowId to database with sync
+                await this._updateSessionSync(session);
 
                 // else if it is temporary session then remove the session from the cache
             } else {
@@ -699,9 +699,7 @@ class SpacesService {
 
             // override session tabs with tabs from window
             session.tabs = curWindow.tabs;
-            session.sessionHash = generateSessionHash(
-                session.tabs
-            );
+            session.sessionHash = generateSessionHash(session.tabs);
 
             // if it is a saved session then update db
             if (session.id) {
@@ -839,7 +837,7 @@ class SpacesService {
      */
     async saveExistingSession(session) {
         try {
-            const updatedSession = await dbService.updateSession(session);
+            const updatedSession = await this._updateSessionSync(session);
             return updatedSession || null;
         } catch (error) {
             console.error('Error saving existing session:', error);
@@ -914,10 +912,8 @@ class SpacesService {
 
         // save session to db - this should only be called on temporary sessions (id: false)
         try {
-            const savedSession = await dbService.createSession(session);
+            const savedSession = await this._createSessionSync(session);
             if (savedSession) {
-                // update sessionId in cache
-                session.id = savedSession.id;
                 return savedSession;
             } else {
                 console.error('Failed to create session');
@@ -925,6 +921,69 @@ class SpacesService {
             }
         } catch (error) {
             console.error('Error creating session:', error);
+            return null;
+        }
+    }
+
+    // ========================================
+    // CENTRALIZED DATABASE OPERATIONS
+    // These methods handle both database operations AND memory synchronization
+    // ========================================
+
+    /**
+     * Creates a session in the database and ensures memory cache synchronization.
+     * @private
+     * @param {Session} session - Session object to create (must exist in this.sessions)
+     * @returns {Promise<Session|null>} The created session with ID, or null if failed
+     */
+    async _createSessionSync(session) {
+        try {
+            const savedSession = await dbService.createSession(session);
+            if (savedSession) {
+                // Find and update the session in memory cache
+                const index = this.sessions.findIndex(s => s === session);
+                if (index !== -1) {
+                    // Update the existing object in place to preserve references
+                    // This is critical for UI components that hold references to session objects
+                    Object.assign(this.sessions[index], savedSession);
+                    return this.sessions[index];
+                } else {
+                    console.warn('Session not found in memory cache during create sync');
+                    return savedSession;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error creating session with sync:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Updates a session in the database and ensures memory cache synchronization.
+     * @private
+     * @param {Session} session - Session object to update (must have valid id)
+     * @returns {Promise<Session|null>} The updated session, or null if failed
+     */
+    async _updateSessionSync(session) {
+        try {
+            const updatedSession = await dbService.updateSession(session);
+            if (updatedSession) {
+                // Find and update the session in memory cache
+                const index = this.sessions.findIndex(s => s.id === session.id);
+                if (index !== -1) {
+                    // Update the existing object in place to preserve references
+                    // This is critical for UI components that hold references to session objects
+                    Object.assign(this.sessions[index], updatedSession);
+                    return this.sessions[index];
+                } else {
+                    console.warn('Session not found in memory cache during update sync');
+                    return updatedSession;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error updating session with sync:', error);
             return null;
         }
     }

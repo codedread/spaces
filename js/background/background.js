@@ -849,7 +849,7 @@ function spaceDateCompare(a, b) {
     return 0;
 }
 
-    async function handleLoadSession(sessionId, tabUrl) {
+async function handleLoadSession(sessionId, tabUrl) {
     const session = await dbService.fetchSessionById(sessionId);
 
     // if space is already open, then give it focus
@@ -876,7 +876,7 @@ function spaceDateCompare(a, b) {
             });
 
         // force match this new window to the session
-        spacesService.matchSessionToWindow(session, newWindow);
+        await spacesService.matchSessionToWindow(session, newWindow);
 
         // after window has loaded try to pin any previously pinned tabs
         for (const curSessionTab of session.tabs) {
