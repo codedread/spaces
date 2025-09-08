@@ -3,13 +3,10 @@
  */
 
 import { filterInternalWindows } from '../js/background/spacesService.js';
+import { setupMinimalChromeMocks } from './helpers.js';
 
-// Mock chrome.runtime.id for testing
-global.chrome = {
-    runtime: {
-        id: 'test-extension-id-12345'
-    }
-};
+// Setup minimal Chrome mocks for testing
+setupMinimalChromeMocks();
 
 describe('filterInternalWindows', () => {
     describe('normal windows (should not be filtered)', () => {

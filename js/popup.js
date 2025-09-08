@@ -7,6 +7,17 @@ import { checkSessionOverwrite, escapeHtml } from './utils.js';
 const UNSAVED_SESSION = '(unnamed window)';
 const NO_HOTKEY = 'no hotkey set';
 
+/**
+ * Handles popup menu clicks by generating popup params and reloading
+ * @param {string} action The popup action ('switch' or 'move')
+ */
+export async function handlePopupMenuClick(action) {
+    const params = await chrome.runtime.sendMessage({'action': 'generatePopupParams', 'popupAction': action});
+    if (!params) return;
+    window.location.hash = params;
+    window.location.reload();
+}
+
 const nodes = {};
 let globalCurrentSpace;
 let globalTabId;
@@ -14,35 +25,39 @@ let globalUrl;
 let globalWindowId;
 let globalSessionName;
 
-/**
- * POPUP INIT
- */
+/** Initialize the popup window. */
+function initializePopup() {
+    document.addEventListener('DOMContentLoaded', async () => {
+        const url = getHashVariable('url', window.location.href);
+        globalUrl = url !== '' ? decodeURIComponent(url) : false;
+        const currentWindow = await chrome.windows.getCurrent({ populate: true });
+        const windowId = currentWindow.id;
+        globalWindowId = windowId !== '' ? windowId : false;
+        globalTabId = getHashVariable('tabId', window.location.href);
+        const sessionName = getHashVariable(
+            'sessionName',
+            window.location.href
+        );
+        globalSessionName =
+            sessionName && sessionName !== 'false' ? sessionName : false;
+        const action = getHashVariable('action', window.location.href);
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const url = getHashVariable('url', window.location.href);
-    globalUrl = url !== '' ? decodeURIComponent(url) : false;
-    const currentWindow = await chrome.windows.getCurrent({ populate: true });
-    const windowId = currentWindow.id;
-    globalWindowId = windowId !== '' ? windowId : false;
-    globalTabId = getHashVariable('tabId', window.location.href);
-    const sessionName = getHashVariable(
-        'sessionName',
-        window.location.href
-    );
-    globalSessionName =
-        sessionName && sessionName !== 'false' ? sessionName : false;
-    const action = getHashVariable('action', window.location.href);
+        const requestSpacePromise = globalWindowId
+            ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
+            : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
 
-    const requestSpacePromise = globalWindowId
-        ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
-        : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
-
-    requestSpacePromise.then(space => {
-        globalCurrentSpace = space;
-        renderCommon();
-        routeView(action);
+        requestSpacePromise.then(space => {
+            globalCurrentSpace = space;
+            renderCommon();
+            routeView(action);
+        });
     });
-});
+}
+
+// Auto-initialize when loaded in browser context
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    initializePopup();
+}
 
 function routeView(action) {
     if (action === 'move') {
@@ -138,22 +153,10 @@ async function renderMainCard() {
         });
     document
         .querySelector('#switcherLink .optionText')
-        .addEventListener('click', async () => {
-            const params = await chrome.runtime.sendMessage({'action': 'switch'});
-            if (!params) return;
-            window.location.hash = params;
-            window.location.reload();
-            renderSwitchCard();
-        });
+        .addEventListener('click', () => handlePopupMenuClick('switch'));
     document
         .querySelector('#moverLink .optionText')
-        .addEventListener('click', async () => {
-            const params = await chrome.runtime.sendMessage({'action': 'generatePopupParams'});
-            if (!params) return;
-            window.location.hash = params;
-            window.location.reload();
-            // renderMoveCard()
-        });
+        .addEventListener('click', () => handlePopupMenuClick('move'));
 }
 
 async function requestHotkeys() {

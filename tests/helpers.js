@@ -1,7 +1,68 @@
 /**
  * Shared test helper functions
  */
+import { jest } from '@jest/globals';
 import { dbService } from '../js/background/dbService.js';
+
+// Re-export jest for convenience
+export { jest };
+
+/**
+ * Sets up global Chrome API mocks for testing
+ */
+export const setupChromeMocks = () => {
+    global.chrome = {
+        runtime: {
+            sendMessage: jest.fn(),
+        },
+        windows: {
+            getCurrent: jest.fn(),
+        },
+        tabs: {
+            query: jest.fn(),
+        }
+    };
+};
+
+/**
+ * Sets up minimal Chrome API mocks for testing (just runtime.id)
+ */
+export const setupMinimalChromeMocks = () => {
+    global.chrome = {
+        runtime: {
+            id: 'test-extension-id-12345'
+        }
+    };
+};
+
+/**
+ * Sets up global DOM mocks for testing
+ */
+export const setupDOMMocks = () => {
+    global.document = {
+        addEventListener: jest.fn(),
+        getElementById: jest.fn(),
+        querySelector: jest.fn(),
+        querySelectorAll: jest.fn(),
+    };
+    
+    global.window = {
+        location: {
+            href: 'popup.html#',
+            hash: '',
+            reload: jest.fn(),
+        },
+        close: jest.fn(),
+    };
+};
+
+/**
+ * Sets up all common test mocks (Chrome APIs and DOM)
+ */
+export const setupTestMocks = () => {
+    setupChromeMocks();
+    setupDOMMocks();
+};
 
 /**
  * Creates a mock for console methods (error, warn, log, etc.)

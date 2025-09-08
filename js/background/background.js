@@ -255,7 +255,8 @@ async function processMessage(request, sender) {
             return requestCurrentSpace();
 
         case 'generatePopupParams':
-            return generatePopupParams(request.action, request.tabUrl);
+            // TODO: Investigate if || request.action should be removed.
+            return generatePopupParams(request.popupAction || request.action, request.tabUrl);
 
         case 'loadSession':
             sessionId = cleanParameter(request.sessionId);
