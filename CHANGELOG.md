@@ -10,4 +10,4 @@ All notable changes to this project will be documented in this file.
 -   Updated all code to modern JavaScript and improved documentation.
 -   Fixed [issue #3](https://github.com/codedread/spaces/issues/3) by escaping
     HTML for all extension content.
--   Increased unit test coverage from 0% to 7.51%.
+-   Increased unit test coverage from 0% to ???%.

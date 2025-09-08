@@ -1,5 +1,27 @@
 import { escapeHtml } from './utils.js';
 
+export function getDefaultSpaceTitle(space) {
+    const count = space.tabs && space.tabs.length;
+    if (!count) return '';
+    const firstTitle = space.tabs[0].title;
+    if (count === 1) {
+        return `[${escapeHtml(firstTitle)}]`;
+    }
+    return firstTitle.length > 30
+        ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
+        : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
+}
+
+export function getTabDetailsString(space) {
+    const count = space.tabs && space.tabs.length;
+    const open = space.windowId;
+
+    if (open) {
+        return '';
+    }
+    return `(${count} tab${count !== 1 ? 's' : ''})`;
+}
+
 // eslint-disable-next-line no-var
 export const spacesRenderer = {
     nodes: {},
@@ -56,8 +78,8 @@ export const spacesRenderer = {
         listDetail.className = 'spaceDetail';
 
         listTitle.innerHTML =
-            space.name || spacesRenderer.getDefaultSpaceTitle(space);
-        listDetail.innerHTML = spacesRenderer.getTabDetailsString(space);
+            space.name || getDefaultSpaceTitle(space);
+        listDetail.innerHTML = getTabDetailsString(space);
 
         listContainer.appendChild(listTitle);
         listContainer.appendChild(listDetail);
@@ -145,28 +167,6 @@ export const spacesRenderer = {
 
             // spacesRenderer.nodes.moveInput.select();
         }
-    },
-
-    getDefaultSpaceTitle(space) {
-        const count = space.tabs && space.tabs.length;
-        if (!count) return '';
-        const firstTitle = space.tabs[0].title;
-        if (count === 1) {
-            return `[${escapeHtml(firstTitle)}]`;
-        }
-        return firstTitle.length > 30
-            ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
-            : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
-    },
-
-    getTabDetailsString(space) {
-        const count = space.tabs && space.tabs.length;
-        const open = space.windowId;
-
-        if (open) {
-            return '';
-        }
-        return `(${count} tab${count > 1 ? 's' : ''})`;
     },
 
     updateSpacesList() {
