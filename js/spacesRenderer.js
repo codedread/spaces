@@ -1,26 +1,6 @@
 import { escapeHtml } from './utils.js';
 
-export function getDefaultSpaceTitle(space) {
-    const count = space.tabs && space.tabs.length;
-    if (!count) return '';
-    const firstTitle = space.tabs[0].title;
-    if (count === 1) {
-        return `[${escapeHtml(firstTitle)}]`;
-    }
-    return firstTitle.length > 30
-        ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
-        : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
-}
-
-export function getTabDetailsString(space) {
-    const count = space.tabs && space.tabs.length;
-    const open = space.windowId;
-
-    if (open) {
-        return '';
-    }
-    return `(${count} tab${count !== 1 ? 's' : ''})`;
-}
+/** @typedef {import('./common.js').Space} Space */
 
 // eslint-disable-next-line no-var
 export const spacesRenderer = {
@@ -248,3 +228,40 @@ export const spacesRenderer = {
         }
     },
 };
+
+// Module-level helper functions.
+
+/**
+ * Generates a default title for a space when it hasn't been named.
+ * Based on the title of the first tab and the total number of tabs.
+ * @param {Space} space - The space object
+ * @returns {string} The generated title string
+ */
+export function getDefaultSpaceTitle(space) {
+    const count = space.tabs && space.tabs.length;
+    if (!count) return '';
+    const firstTitle = space.tabs[0].title;
+    if (count === 1) {
+        return `[${escapeHtml(firstTitle)}]`;
+    }
+    return firstTitle.length > 30
+        ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
+        : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
+}
+
+/**
+ * Generates a string with the number of tabs in a space.
+ * Returns an empty string if the space is currently open.
+ * @param {Space} space - The space object
+ * @returns {string} The generated string with the number of tabs
+ */
+export function getTabDetailsString(space) {
+    const count = space.tabs && space.tabs.length;
+    const open = space.windowId;
+
+    if (open) {
+        return '';
+    }
+    return `(${count} tab${count !== 1 ? 's' : ''})`;
+}
+

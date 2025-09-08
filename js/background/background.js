@@ -817,6 +817,7 @@ async function requestSpaceFromSessionId(sessionId) {
 async function requestAllSpaces() {
     // Get all sessions from spacesService (includes both saved and temporary open window sessions)
     const allSessions = await spacesService.getAllSessions();
+    /** @type {Space[]} */
     const allSpaces = allSessions
         .map(session => {
             return { sessionId: session.id, ...session };

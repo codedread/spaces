@@ -363,7 +363,7 @@ class SpacesService {
 
     /**
      * Get all sessions (includes both saved sessions and temporary open window sessions)
-     * @returns {Promise<Array>} Promise that resolves to a shallow copy of all sessions
+     * @returns {Promise<Array<Session>>} Promise that resolves to a shallow copy of all sessions
      */
     async getAllSessions() {
         await this.ensureInitialized();
