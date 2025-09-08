@@ -13,6 +13,9 @@ let bannerState;
 
 function renderSpacesList(spaces) {
     let spaceEl;
+    
+    // Clear globalSelectedSpace at the start - it will be set if we find a match
+    globalSelectedSpace = null;
 
     nodes.openSpaces.innerHTML = '';
     nodes.closedSpaces.innerHTML = '';
@@ -46,14 +49,17 @@ function renderSpaceListEl(space) {
         linkEl.innerHTML = UNSAVED_SESSION;
     }
 
+    // Check if this space should be selected based on current hash
+    const currentSessionId = getHashVariable('sessionId', window.location.href);
+    const currentWindowId = getHashVariable('windowId', window.location.href);
+    
     if (
-        globalSelectedSpace &&
-        ((space.windowId &&
-            globalSelectedSpace.windowId === space.windowId) ||
-            (space.sessionId &&
-                globalSelectedSpace.sessionId === space.sessionId))
+        (currentSessionId && space.sessionId && currentSessionId == space.sessionId) ||
+        (currentWindowId && space.windowId && currentWindowId == space.windowId)
     ) {
         linkEl.className = 'selected';
+        // Also update globalSelectedSpace for the detail view
+        globalSelectedSpace = space;
     }
 
     // if (space && !space.windowId) {
@@ -541,9 +547,10 @@ async function performRestoreFromBackup(spaces) {
 
 function addEventListeners() {
     // register hashchange listener
-    window.onhashchange = () => {
-        updateSpacesList();
-        updateSpaceDetail();
+    window.onhashchange = async () => {
+        await updateSpacesList();
+        // Update the detail view using the globalSelectedSpace set by updateSpacesList
+        await updateSpaceDetail(true);
     };
 
     // register incoming events listener
@@ -653,15 +660,10 @@ async function updateSpaceDetail(useCachedSpace) {
     } else if (sessionId || windowId) {
         const space = await fetchSpaceDetail(sessionId, windowId);
         addDuplicateMetadata(space);
-
-        // cache current selected space
-        globalSelectedSpace = space;
         renderSpaceDetail(space, editMode);
 
         // otherwise hide space detail view
     } else {
-        // clear cache
-        globalSelectedSpace = false;
         renderSpaceDetail(false, false);
     }
 }
