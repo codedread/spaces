@@ -141,12 +141,11 @@ export function initializeServiceWorker() {
         }
     });
 
-    // don't need this listener as the tabUpdated listener also fires when a new window is created
-    // chrome.windows.onCreated.addListener(function (window) {
-
-    //     if (checkInternalSpacesWindows(window.id, false)) return;
-    //     spacesService.handleWindowCreated(window);
-    // });
+    // Add listener for window creation to ensure new windows are detected
+    chrome.windows.onCreated.addListener(function (window) {
+        if (checkInternalSpacesWindows(window.id, false)) return;
+        setTimeout(() => updateSpacesWindow('windows.onCreated'), 100);
+    });
 
     // add listeners for tab and window focus changes
     // when a tab or window is changed, close the move tab popup if it is open
