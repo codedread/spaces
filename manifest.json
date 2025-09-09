@@ -1,7 +1,7 @@
 {
     "name": "Spaces",
     "description": "Intuitive tab management",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "permissions": [
         "contextMenus",
         "favicon",
@@ -28,7 +28,7 @@
     },
     "incognito": "split",
     "manifest_version": 3,
-    "minimum_chrome_version": "35",
+    "minimum_chrome_version": "88",
 
     "commands": {
         "spaces-move": {

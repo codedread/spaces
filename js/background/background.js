@@ -54,7 +54,7 @@ async function rediscoverWindowByUrl(storageKey, htmlFilename) {
 }
 
 export function initializeServiceWorker() {
-    console.log(`Initializing service worker...`);
+    console.log(`Initializing service worker...(1.1.5)`);
 
     chrome.runtime.onInstalled.addListener(details => {
         console.log(`Extension installed: ${JSON.stringify(details)}`);
