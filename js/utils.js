@@ -1,63 +1,59 @@
+/**
+ * @fileoverview Client-side utility functions for the Spaces Chrome extension.
+ * 
+ * This module contains utility functions that are only used by client-side code
+ * (popup, spaces window, content scripts, etc.). Functions that need to be shared
+ * between client-side and background scripts should be placed in common.js instead.
+ */
+
 /* global chrome  */
-// eslint-disable-next-line no-var, no-unused-vars
-var utils = {
-    getHashVariable: (key, urlStr) => {
-        const valuesByKey = {};
-        const keyPairRegEx = /^(.+)=(.+)/;
 
-        if (!urlStr || urlStr.length === 0 || urlStr.indexOf('#') === -1) {
-            return false;
-        }
+/** @typedef {import('./common.js').SessionPresence} SessionPresence */
 
-        // extract hash component from url
-        const hashStr = urlStr.replace(/^[^#]+#+(.*)/, '$1');
+/**
+ * Checks if a session with the given name can be overwritten by checking
+ * with the background script, alerting the user if the session is currently
+ * open, and confirming if the session already exists but is not open.
+ * @param {string} sessionName 
+ * @returns {Promise<boolean>} Returns true if the session can be safely
+ *     overwritten. This happens if the session does not exist or if the
+ *     user has confirmed overwriting.
+ */
+export async function checkSessionOverwrite(sessionName) {
+    /** @type {SessionPresence} */
+    const sessionPresence = await chrome.runtime.sendMessage({
+        action: 'requestSessionPresence',
+        sessionName,
+    });
 
-        if (hashStr.length === 0) {
-            return false;
-        }
+    if (!sessionPresence.exists) {
+        return true;
+    }
 
-        hashStr.split('&').forEach(keyPair => {
-            if (keyPair && keyPair.match(keyPairRegEx)) {
-                valuesByKey[
-                    keyPair.replace(keyPairRegEx, '$1')
-                ] = keyPair.replace(keyPairRegEx, '$2');
-            }
-        });
-        return valuesByKey[key] || false;
-    },
+    if (sessionPresence.isOpen) {
+        // eslint-disable-next-line no-alert
+        alert(
+            `A session with the name '${sessionName}' is currently open and cannot be overwritten`
+        );
+        return false;
+    }
+    return confirm(
+        `A session with the name '${sessionName}' already exists. Do you want to overwrite it?`
+    );
+}
 
-    getSwitchKeycodes: callback => {
-        chrome.runtime.sendMessage({ action: 'requestHotkeys' }, commands => {
-            // eslint-disable-next-line no-console
-            console.dir(commands);
-
-            const commandStr = commands.switchCode;
-
-            const keyStrArray = commandStr.split('+');
-
-            // get keyStr of primary modifier
-            const primaryModifier = keyStrArray[0];
-
-            // get keyStr of secondary modifier
-            const secondaryModifier =
-                keyStrArray.length === 3 ? keyStrArray[1] : false;
-
-            // get keycode of main key (last in array)
-            const curStr = keyStrArray[keyStrArray.length - 1];
-
-            // TODO: There's others. Period. Up Arrow etc.
-            let mainKeyCode;
-            if (curStr === 'Space') {
-                mainKeyCode = 32;
-            } else {
-                mainKeyCode = curStr.toUpperCase().charCodeAt();
-            }
-
-            callback({
-                primaryModifier,
-                secondaryModifier,
-                mainKeyCode,
-            });
-        });
-    },
-};
+/**
+ * Escapes HTML characters to prevent XSS and HTML injection.
+ * @param {string} text - The text to escape
+ * @returns {string} The HTML-escaped text
+ */
+export function escapeHtml(text) {
+    if (!text) return text;
+    
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}

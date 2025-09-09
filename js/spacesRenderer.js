@@ -1,10 +1,14 @@
+import { escapeHtml } from './utils.js';
+
+/** @typedef {import('./common.js').Space} Space */
+
 // eslint-disable-next-line no-var
-var spacesRenderer = {
+export const spacesRenderer = {
     nodes: {},
     maxSuggestions: 10,
     oneClickMode: false,
 
-    initialise: (maxSuggestions, oneClickMode) => {
+    initialise(maxSuggestions, oneClickMode) {
         spacesRenderer.maxSuggestions = maxSuggestions;
         spacesRenderer.oneClickMode = oneClickMode;
 
@@ -22,11 +26,11 @@ var spacesRenderer = {
         spacesRenderer.addEventListeners();
     },
 
-    renderSpaces: spaces => {
-        spaces.forEach(space => {
+    renderSpaces(spaces) {
+        for (const space of spaces) {
             const spaceEl = spacesRenderer.renderSpaceEl(space);
             spacesRenderer.nodes.spacesList.appendChild(spaceEl);
-        });
+        }
         spacesRenderer.selectSpace(spacesRenderer.getFirstSpaceEl(), false);
 
         spacesRenderer.updateSpacesList();
@@ -34,7 +38,7 @@ var spacesRenderer = {
         spacesRenderer.nodes.moveInput.focus();
     },
 
-    renderSpaceEl: space => {
+    renderSpaceEl(space) {
         const listContainer = document.createElement('div');
         const listTitle = document.createElement('span');
         const listDetail = document.createElement('span');
@@ -54,8 +58,8 @@ var spacesRenderer = {
         listDetail.className = 'spaceDetail';
 
         listTitle.innerHTML =
-            space.name || spacesRenderer.getDefaultSpaceTitle(space);
-        listDetail.innerHTML = spacesRenderer.getTabDetailsString(space);
+            space.name || getDefaultSpaceTitle(space);
+        listDetail.innerHTML = getTabDetailsString(space);
 
         listContainer.appendChild(listTitle);
         listContainer.appendChild(listDetail);
@@ -70,37 +74,36 @@ var spacesRenderer = {
         return listContainer;
     },
 
-    handleSpaceClick: e => {
+    handleSpaceClick(e) {
         const el =
             e.target.tagName === 'SPAN' ? e.target.parentElement : e.target;
         spacesRenderer.selectSpace(el, !spacesRenderer.oneClickMode);
     },
 
-    handleSelectionNavigation: direction => {
+    handleSelectionNavigation(direction) {
         const spaceEls = document.querySelectorAll('#spacesList .space');
         let prevEl = false;
         let selectNext = false;
         let selectedSpaceEl;
 
-        Array.prototype.some.call(spaceEls, el => {
-            if (el.style.visibility !== 'visible') return false;
+        for (const el of spaceEls) {
+            if (el.style.visibility !== 'visible') continue;
 
             // locate currently selected space
             if (el.className.indexOf('selected') >= 0) {
                 if (direction === 'up' && prevEl) {
                     selectedSpaceEl = prevEl;
-                    return true;
+                    break;
                 }
                 if (direction === 'down') {
                     selectNext = true;
                 }
             } else if (selectNext) {
                 selectedSpaceEl = el;
-                return true;
+                break;
             }
             prevEl = el;
-            return false;
-        });
+        }
         if (selectedSpaceEl) {
             spacesRenderer.selectSpace(
                 selectedSpaceEl,
@@ -109,20 +112,16 @@ var spacesRenderer = {
         }
     },
 
-    getFirstSpaceEl: () => {
-        const allSpaceEls = document.querySelectorAll('#spacesList .space');
-        let firstSpaceEl = false;
-        Array.prototype.some.call(allSpaceEls, spaceEl => {
+    getFirstSpaceEl() {
+        for (const spaceEl of document.querySelectorAll('#spacesList .space')) {
             if (spaceEl.style.visibility === 'visible') {
-                firstSpaceEl = spaceEl;
-                return true;
+                return spaceEl;
             }
-            return false;
-        });
-        return firstSpaceEl;
+        }
+        return false;
     },
 
-    selectSpace: (selectedSpaceEl, updateText) => {
+    selectSpace(selectedSpaceEl, updateText) {
         const allSpaceEls = document.querySelectorAll('#spacesList .space');
 
         for (let i = 0; i < allSpaceEls.length; i += 1) {
@@ -150,29 +149,7 @@ var spacesRenderer = {
         }
     },
 
-    getDefaultSpaceTitle: space => {
-        const count = space.tabs && space.tabs.length;
-        if (!count) return '';
-        const firstTitle = space.tabs[0].title;
-        if (count === 1) {
-            return `[${firstTitle}]`;
-        }
-        return firstTitle.length > 30
-            ? `[${firstTitle.slice(0, 21)}&hellip;] +${count - 1} more`
-            : `[${firstTitle}] +${count - 1} more`;
-    },
-
-    getTabDetailsString: space => {
-        const count = space.tabs && space.tabs.length;
-        const open = space.windowId;
-
-        if (open) {
-            return '';
-        }
-        return `(${count} tab${count > 1 ? 's' : ''})`;
-    },
-
-    updateSpacesList: () => {
+    updateSpacesList() {
         const query = spacesRenderer.nodes.moveInput.value;
         let match = false;
         let exactMatch = false;
@@ -223,7 +200,7 @@ var spacesRenderer = {
         spacesRenderer.selectSpace(spacesRenderer.getFirstSpaceEl(), false);
     },
 
-    addEventListeners: () => {
+    addEventListeners() {
         spacesRenderer.nodes.moveInput.parentElement.parentElement.onkeyup = e => {
             // listen for 'up' key
             if (e.keyCode === 38) {
@@ -251,3 +228,40 @@ var spacesRenderer = {
         }
     },
 };
+
+// Module-level helper functions.
+
+/**
+ * Generates a default title for a space when it hasn't been named.
+ * Based on the title of the first tab and the total number of tabs.
+ * @param {Space} space - The space object
+ * @returns {string} The generated title string
+ */
+export function getDefaultSpaceTitle(space) {
+    const count = space.tabs && space.tabs.length;
+    if (!count) return '';
+    const firstTitle = space.tabs[0].title;
+    if (count === 1) {
+        return `[${escapeHtml(firstTitle)}]`;
+    }
+    return firstTitle.length > 30
+        ? `[${escapeHtml(firstTitle.slice(0, 21))}&hellip;] +${count - 1} more`
+        : `[${escapeHtml(firstTitle)}] +${count - 1} more`;
+}
+
+/**
+ * Generates a string with the number of tabs in a space.
+ * Returns an empty string if the space is currently open.
+ * @param {Space} space - The space object
+ * @returns {string} The generated string with the number of tabs
+ */
+export function getTabDetailsString(space) {
+    const count = space.tabs && space.tabs.length;
+    const open = space.windowId;
+
+    if (open) {
+        return '';
+    }
+    return `(${count} tab${count !== 1 ? 's' : ''})`;
+}
+
