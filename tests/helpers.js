@@ -15,11 +15,16 @@ export const setupChromeMocks = () => {
         runtime: {
             sendMessage: jest.fn(),
         },
-        windows: {
-            getCurrent: jest.fn(),
+        system: {
+            display: {
+                getInfo: jest.fn(),
+            },
         },
         tabs: {
             query: jest.fn(),
+        },
+        windows: {
+            getCurrent: jest.fn(),
         }
     };
 };

@@ -4,6 +4,7 @@
 
 /* spaces
  * Copyright (C) 2015 Dean Oemcke
+ * Copyright (C) 2025 Jeff Schiller (Codedread)
  */
 
 import { dbService } from './dbService.js';
@@ -540,18 +541,18 @@ async function showSpacesOpenWindow(windowId, editMode) {
 
         // otherwise re-create it
     } else {
-        // TODO(codedread): Handle multiple displays and errors.
-        const displays = await chrome.system.display.getInfo();
-        let screen = displays[0].bounds;
-        const window = await chrome.windows.create(
-            {
-                type: 'popup',
-                url,
-                height: screen.height - 100,
-                width: Math.min(screen.width, 1000),
-                top: 0,
-                left: 0,
-            });
+        // Display on the left-hand side of the appropriate display.
+        const workArea = await getTargetDisplayWorkArea();
+        const windowHeight = Math.round(workArea.height * 0.9);
+        const windowWidth = Math.min(workArea.width - 100, 1000);
+        const window = await chrome.windows.create({
+            type: 'popup',
+            url,
+            height: windowHeight,
+            width: windowWidth,
+            top: workArea.top,
+            left: workArea.left,
+        });
         spacesOpenWindowId = window.id;
         await chrome.storage.local.set({spacesOpenWindowId: window.id});
     }
@@ -618,20 +619,19 @@ async function createOrShowSpacesPopupWindow(action, tabUrl) {
 
         // otherwise create it
     } else {
-        // TODO(codedread): Handle multiple displays and errors.
-        const displays = await chrome.system.display.getInfo();
-        let screen = displays[0].bounds;
-
-        const window = await chrome.windows.create(
-            {
-                type: 'popup',
-                url: popupUrl,
-                focused: true,
-                height: 450,
-                width: 310,
-                top: screen.height - 450,
-                left: screen.width - 310,
-            });
+        // Display in the lower-right corner of the appropriate display.
+        const workArea = await getTargetDisplayWorkArea();
+        const popupHeight = 450;
+        const popupWidth = 310;
+        const window = await chrome.windows.create({
+            type: 'popup',
+            url: popupUrl,
+            focused: true,
+            height: popupHeight,
+            width: popupWidth,
+            top: Math.round(workArea.top + workArea.height - popupHeight),
+            left: Math.round(workArea.left + workArea.width - popupWidth),
+        });
         spacesPopupWindowId = window.id;
         await chrome.storage.local.set({spacesPopupWindowId: window.id});
     }
@@ -863,18 +863,17 @@ async function handleLoadSession(sessionId, tabUrl) {
             return curTab.url;
         });
 
-        // TODO(codedread): Handle multiple displays and errors.
-        const displays = await chrome.system.display.getInfo();
-        let screen = displays[0].bounds;
-
-        const newWindow = await chrome.windows.create(
-            {
-                url: urls,
-                height: screen.height - 100,
-                width: screen.width - 100,
-                top: 0,
-                left: 0,
-            });
+        // Display new session over most of the appropriate display.
+        const workArea = await getTargetDisplayWorkArea();
+        const windowHeight = workArea.height - 100;
+        const windowWidth = workArea.width - 100;
+        const newWindow = await chrome.windows.create({
+            url: urls,
+            height: windowHeight,
+            width: windowWidth,
+            top: workArea.top,
+            left: workArea.left,
+        });
 
         // force match this new window to the session
         await spacesService.matchSessionToWindow(session, newWindow);
@@ -1255,5 +1254,36 @@ function moveTabToWindow(tab, windowId) {
     spacesService.queueWindowEvent(windowId);
 }
 
+/**
+ * Determines the most appropriate display to show a new window on.
+ * It prefers the display containing the currently focused Chrome window.
+ * If no window is focused, it falls back to the primary display.
+ * @returns {Promise<chrome.system.display.Bounds>} A promise that resolves to the work area bounds of the target display.
+ */
+async function getTargetDisplayWorkArea() {
+    const [displays, currentWindow] = await Promise.all([
+        chrome.system.display.getInfo(),
+        chrome.windows.getCurrent().catch(() => null) // Catch if no window is focused
+    ]);
+
+    let targetDisplay = displays.find(d => d.isPrimary) || displays[0]; // Default to primary
+
+    // Find the display that contains the center of the current window
+    if (currentWindow) {
+        const windowCenterX = currentWindow.left + currentWindow.width / 2;
+        const windowCenterY = currentWindow.top + currentWindow.height / 2;
+        const activeDisplay = displays.find(display => {
+            const d = display.workArea;
+            return windowCenterX >= d.left && windowCenterX < (d.left + d.width) &&
+                   windowCenterY >= d.top && windowCenterY < (d.top + d.height);
+        });
+        if (activeDisplay) {
+            targetDisplay = activeDisplay;
+        }
+    }
+
+    return targetDisplay.workArea;
+}
+
 // Exports for testing.
-export { cleanParameter };
+export { cleanParameter, getTargetDisplayWorkArea };

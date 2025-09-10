@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.6] - 2025-??-??
+
+### Changes
+
+- Fixed [issue #14](https://github.com/codedread/spaces/issues/14): Open Spaces windows on the currently-active display.
+- Increased unit test coverage from 8.11% to 8.72%.
+
+
 ## [1.1.5] - 2025-09-08
 
 ### Fixes
