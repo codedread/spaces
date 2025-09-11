@@ -55,7 +55,7 @@ async function rediscoverWindowByUrl(storageKey, htmlFilename) {
 }
 
 export function initializeServiceWorker() {
-    console.log(`Initializing service worker...(1.1.5)`);
+    console.log(`Initializing service worker...`);
 
     chrome.runtime.onInstalled.addListener(details => {
         console.log(`Extension installed: ${JSON.stringify(details)}`);
@@ -883,10 +883,7 @@ async function handleLoadSession(sessionId, tabUrl) {
             if (curSessionTab.pinned) {
                 let pinnedTabId = false;
                 newWindow.tabs.some(curNewTab => {
-                    if (
-                        curNewTab.url === curSessionTab.url ||
-                        curNewTab.pendingUrl === curSessionTab.url
-                    ) {
+                    if (getEffectiveTabUrl(curNewTab) === curSessionTab.url) {
                         pinnedTabId = curNewTab.id;
                         return true;
                     }
@@ -933,8 +930,8 @@ async function focusWindow(windowId) {
 
 async function focusOrLoadTabInWindow(window, tabUrl) {
     let match = false;
-    for (const tab of window.tabs) {
-        if (tab.url === tabUrl) {
+    for (const tab of window.tabs || []) {
+        if (getEffectiveTabUrl(tab) === tabUrl) {
             await chrome.tabs.update(tab.id, { active: true });
             match = true;
             break;
@@ -942,7 +939,7 @@ async function focusOrLoadTabInWindow(window, tabUrl) {
     }
 
     if (!match) {
-        await chrome.tabs.create({ url: tabUrl });
+        await chrome.tabs.create({ url: tabUrl, active: true });
     }
 }
 
@@ -1254,6 +1251,20 @@ function moveTabToWindow(tab, windowId) {
     spacesService.queueWindowEvent(windowId);
 }
 
+// Module-level helper functions.
+
+/**
+ * Gets the effective URL of a tab, preferring pendingUrl for loading tabs.
+ * @param {chrome.tabs.Tab} tab The tab object to get the effective URL from.
+ * @returns {string} The effective URL of the tab.
+ */
+function getEffectiveTabUrl(tab) {
+    if (tab.status === 'loading' && tab.pendingUrl) {
+        return tab.pendingUrl;
+    }
+    return tab.url;
+}
+
 /**
  * Determines the most appropriate display to show a new window on.
  * It prefers the display containing the currently focused Chrome window.
@@ -1286,4 +1297,9 @@ async function getTargetDisplayWorkArea() {
 }
 
 // Exports for testing.
-export { cleanParameter, getTargetDisplayWorkArea };
+export {
+    cleanParameter,
+    focusOrLoadTabInWindow,
+    getEffectiveTabUrl,
+    getTargetDisplayWorkArea,
+};

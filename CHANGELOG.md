@@ -6,8 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changes
 
+- Fixed [issue #16](https://github.com/codedread/spaces/issues/16): Stop duplicating tabs of a closed Space when tab is clicked from the Spaces window.
 - Fixed [issue #14](https://github.com/codedread/spaces/issues/14): Open Spaces windows on the currently-active display.
-- Increased unit test coverage from 8.11% to 8.72%.
+- Increased unit test coverage from 8.11% to 9.32%.
 
 
 ## [1.1.5] - 2025-09-08

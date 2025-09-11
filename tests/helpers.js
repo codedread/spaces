@@ -21,7 +21,9 @@ export const setupChromeMocks = () => {
             },
         },
         tabs: {
+            create: jest.fn(),
             query: jest.fn(),
+            update: jest.fn(),
         },
         windows: {
             getCurrent: jest.fn(),
