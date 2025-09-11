@@ -791,47 +791,6 @@ async function requestSpaceFromSessionId(sessionId) {
     };
 }
 
-/**
- * Requests all spaces (sessions) from the database.
- * 
- * @returns {Promise<Space[]>} Promise that resolves to an array of Space objects
- */
-async function requestAllSpaces() {
-    // Get all sessions from spacesService (includes both saved and temporary open window sessions)
-    const allSessions = await spacesService.getAllSessions();
-    /** @type {Space[]} */
-    const allSpaces = allSessions
-        .map(session => {
-            return { sessionId: session.id, ...session };
-        })
-        .filter(session => {
-            return session && session.tabs && session.tabs.length > 0;
-        });
-
-    // sort results
-    allSpaces.sort(spaceDateCompare);
-
-    return allSpaces;
-}
-
-function spaceDateCompare(a, b) {
-    // order open sessions first
-    if (a.windowId && !b.windowId) {
-        return -1;
-    }
-    if (!a.windowId && b.windowId) {
-        return 1;
-    }
-    // then order by last access date
-    if (a.lastAccess > b.lastAccess) {
-        return -1;
-    }
-    if (a.lastAccess < b.lastAccess) {
-        return 1;
-    }
-    return 0;
-}
-
 async function handleLoadSession(sessionId, tabUrl) {
     const session = await dbService.fetchSessionById(sessionId);
 
@@ -896,7 +855,7 @@ async function handleLoadSession(sessionId, tabUrl) {
 async function handleLoadWindow(windowId, tabUrl) {
     // assume window is already open, give it focus
     if (windowId) {
-        await focusWindow(windowId);
+        await chrome.windows.update(windowId, { focused: true })
     }
 
     // if tabUrl is defined, then focus this tab
@@ -904,10 +863,6 @@ async function handleLoadWindow(windowId, tabUrl) {
         const theWin = await chrome.windows.get(windowId, { populate: true });
         await focusOrLoadTabInWindow(theWin, tabUrl);
     }
-}
-
-async function focusWindow(windowId) {
-    await chrome.windows.update(windowId, { focused: true });
 }
 
 /**
@@ -1306,10 +1261,50 @@ async function getTargetDisplayWorkArea() {
     return targetDisplay.workArea;
 }
 
+/**
+ * Requests all spaces (sessions) from the database.
+ * 
+ * @returns {Promise<Space[]>} Promise that resolves to an array of Space objects
+ */
+async function requestAllSpaces() {
+    // Get all sessions from spacesService (includes both saved and temporary open window sessions)
+    const allSessions = await spacesService.getAllSessions();
+    /** @type {Space[]} */
+    const allSpaces = allSessions
+        .map(session => {
+            return { sessionId: session.id, ...session };
+        })
+        .filter(session => {
+            return session && session.tabs && session.tabs.length > 0;
+        });
+
+    // sort results
+    allSpaces.sort((a, b) => {
+        // order open sessions first
+        if (a.windowId && !b.windowId) {
+            return -1;
+        }
+        if (!a.windowId && b.windowId) {
+            return 1;
+        }
+        // then order by last access date
+        if (a.lastAccess > b.lastAccess) {
+            return -1;
+        }
+        if (a.lastAccess < b.lastAccess) {
+            return 1;
+        }
+        return 0;
+    });
+
+    return allSpaces;
+}
+
 // Exports for testing.
 export {
     cleanParameter,
     focusOrLoadTabInWindow,
     getEffectiveTabUrl,
     getTargetDisplayWorkArea,
+    requestAllSpaces,
 };
