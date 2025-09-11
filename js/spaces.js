@@ -160,14 +160,19 @@ function renderTabListEl(tab, space) {
     const linkEl = document.createElement('a');
     const faviconEl = document.createElement('img');
 
-    // try to get best favicon url path
+    // Use the provided favicon URL if it exists and is not a generic Chrome theme icon.
     if (tab.favIconUrl && tab.favIconUrl.indexOf('chrome://theme') < 0) {
         faviconSrc = tab.favIconUrl;
-    } else {
-        // TODO(codedread): Fix this, it errors.
-        //faviconSrc = `chrome://favicon/${tab.url}`;
+    // Otherwise, if the tab has a URL, construct a URL to fetch the favicon
+    // via the extension's _favicon API. This is the recommended approach for Manifest V3.
+    } else if (tab.url) {
+        const pageUrl = encodeURIComponent(tab.url);
+        faviconSrc = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${pageUrl}&size=16`;
     }
-    faviconEl.setAttribute('src', faviconSrc);
+    
+    if (faviconSrc) {
+        faviconEl.setAttribute('src', faviconSrc);
+    }
 
     linkEl.innerHTML = escapeHtml(tab.title ?? tab.url);
     linkEl.setAttribute('href', tab.url);
