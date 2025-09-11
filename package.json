@@ -9,7 +9,8 @@
         "collectCoverageFrom": [
             "js/**/*.js",
             "!js/**/*.test.js",
-            "!**/node_modules/**"
+            "!**/node_modules/**",
+            "!js/background/main.js"
         ],
         "testEnvironment": "node"
     },
