@@ -496,24 +496,6 @@ async function processMessage(request, sender) {
     }
 }
 
-/**
- * Ensures the parameter is a number.
- * @param {string|number} param - The parameter to clean.
- * @returns {number} - The cleaned parameter.
- */
-function cleanParameter(param) {
-    if (typeof param === 'number') {
-        return param;
-    }
-    if (param === 'false') {
-        return false;
-    }
-    if (param === 'true') {
-        return true;
-    }
-    return parseInt(param, 10);
-}
-
 function createShortcutsWindow() {
     chrome.tabs.create({ url: 'chrome://extensions/configureCommands' });
 }
@@ -928,21 +910,6 @@ async function focusWindow(windowId) {
     await chrome.windows.update(windowId, { focused: true });
 }
 
-async function focusOrLoadTabInWindow(window, tabUrl) {
-    let match = false;
-    for (const tab of window.tabs || []) {
-        if (getEffectiveTabUrl(tab) === tabUrl) {
-            await chrome.tabs.update(tab.id, { active: true });
-            match = true;
-            break;
-        }
-    }
-
-    if (!match) {
-        await chrome.tabs.create({ url: tabUrl, active: true });
-    }
-}
-
 /**
  * Saves a new session from the specified window.
  * 
@@ -1252,6 +1219,49 @@ function moveTabToWindow(tab, windowId) {
 }
 
 // Module-level helper functions.
+
+/**
+ * Ensures the parameter is a number.
+ * @param {string|number} param - The parameter to clean.
+ * @returns {number} - The cleaned parameter.
+ */
+function cleanParameter(param) {
+    if (typeof param === 'number') {
+        return param;
+    }
+    if (param === 'false') {
+        return false;
+    }
+    if (param === 'true') {
+        return true;
+    }
+    return parseInt(param, 10);
+}
+
+/**
+ * Searches for a tab with a specific URL within a given window.
+ * If a matching tab is found, it is brought into focus.
+ * If no matching tab is found, a new tab with the specified URL is created and activated.
+ * Note: The new tab is created in the current window, not necessarily the one passed as a parameter.
+ *
+ * @param {chrome.windows.Window} window The window object to search for the tab in. It should contain a `tabs` array.
+ * @param {string} tabUrl The URL of the tab to find or create.
+ * @returns {Promise<void>} A promise that resolves once the tab is focused or created.
+ */
+async function focusOrLoadTabInWindow(window, tabUrl) {
+    let match = false;
+    for (const tab of window.tabs || []) {
+        if (getEffectiveTabUrl(tab) === tabUrl) {
+            await chrome.tabs.update(tab.id, { active: true });
+            match = true;
+            break;
+        }
+    }
+
+    if (!match) {
+        await chrome.tabs.create({ url: tabUrl, active: true });
+    }
+}
 
 /**
  * Gets the effective URL of a tab, preferring pendingUrl for loading tabs.
