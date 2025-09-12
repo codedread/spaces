@@ -144,7 +144,7 @@ async function renderMainCard() {
     }
 
     document
-        .querySelector('#allSpacesLink .optionText')
+        .getElementById('allSpacesLink')
         .addEventListener('click', () => {
             chrome.runtime.sendMessage({
                 action: 'requestShowSpaces',
@@ -152,10 +152,10 @@ async function renderMainCard() {
             window.close();
         });
     document
-        .querySelector('#switcherLink .optionText')
+        .getElementById('switcherLink')
         .addEventListener('click', () => handlePopupMenuClick('switch'));
     document
-        .querySelector('#moverLink .optionText')
+        .getElementById('moverLink')
         .addEventListener('click', () => handlePopupMenuClick('move'));
 }
 
@@ -194,6 +194,12 @@ async function handleNameSave() {
     const inputEl = document.getElementById('activeSpaceTitle');
     const newName = inputEl.value;
 
+    // If the input is empty and the space was previously unnamed, restore the placeholder.
+    if (newName.trim() === '' && !globalCurrentSpace.name) {
+        inputEl.value = UNSAVED_SESSION;
+        return;
+    }
+
     if (
         newName === UNSAVED_SESSION ||
         newName === globalCurrentSpace.name
@@ -209,19 +215,26 @@ async function handleNameSave() {
     }
 
     if (globalCurrentSpace.sessionId) {
-        chrome.runtime.sendMessage({
+        const updatedSession = await chrome.runtime.sendMessage({
             action: 'updateSessionName',
             deleteOld: true,
             sessionName: newName,
             sessionId: globalCurrentSpace.sessionId,
         });
+        if (updatedSession) {
+            globalCurrentSpace.name = updatedSession.name;
+        }
     } else {
-        chrome.runtime.sendMessage({
+        const newSession = await chrome.runtime.sendMessage({
             action: 'saveNewSession',
             deleteOld: true,
             sessionName: newName,
             windowId: globalCurrentSpace.windowId,
         });
+        if (newSession) {
+            globalCurrentSpace.name = newSession.name;
+            globalCurrentSpace.sessionId = newSession.id;
+        }
     }
 }
 

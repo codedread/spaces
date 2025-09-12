@@ -49,6 +49,14 @@ a {
     white-space: nowrap;
     cursor: pointer;
     padding: 0 10px;
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 200;
 }
 .menuOption .optionText:hover {
     text-decoration: underline;

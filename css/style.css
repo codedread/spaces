@@ -195,6 +195,9 @@ a.active {
     display: none;
     padding: 21px 14px;
     font-size: 25px;
+    background: transparent;
+    border: none;
+    color: #000;
 }
 .header .button:hover {
     cursor: pointer;
