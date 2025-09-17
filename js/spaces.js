@@ -1,5 +1,9 @@
 /* global chrome */
 
+/**
+ * @typedef {import('./common.js').Space} Space
+ */
+
 import { getHashVariable } from './common.js';
 import { checkSessionOverwrite, escapeHtml } from './utils.js';
 
@@ -662,22 +666,6 @@ async function updateSpaceDetail(useCachedSpace) {
     }
 }
 
-function addDuplicateMetadata(space) {
-    const dupeCounts = {};
-
-    space.tabs.forEach(tab => {
-        // eslint-disable-next-line no-param-reassign
-        tab.title = tab.title || tab.url;
-        dupeCounts[tab.title] = dupeCounts[tab.title]
-            ? dupeCounts[tab.title] + 1
-            : 1;
-    });
-    space.tabs.forEach(tab => {
-        // eslint-disable-next-line no-param-reassign
-        tab.duplicate = dupeCounts[tab.title] > 1;
-    });
-}
-
 /**
  * Initialize the spaces window.
  * This function should be called from the HTML page after the DOM is loaded.
@@ -724,6 +712,32 @@ if (typeof window !== 'undefined') {
 }
 
 // Module-level helper functions.
+
+/**
+ * Adds duplicate metadata to tabs within a space.
+ * Normalizes tab titles (using URL if title is missing) and marks tabs as duplicates
+ * if multiple tabs have the same title.
+ * 
+ * @param {Space} space - The space object containing an array of tabs
+ */
+function addDuplicateMetadata(space) {
+    if (!space || !Array.isArray(space.tabs)) {
+        return;
+    }
+    const dupeCounts = {};
+
+    space.tabs.forEach(tab => {
+        // eslint-disable-next-line no-param-reassign
+        tab.title = tab.title || tab.url;
+        dupeCounts[tab.title] = dupeCounts[tab.title]
+            ? dupeCounts[tab.title] + 1
+            : 1;
+    });
+    space.tabs.forEach(tab => {
+        // eslint-disable-next-line no-param-reassign
+        tab.duplicate = dupeCounts[tab.title] > 1;
+    });
+}
 
 /**
  * Extracts the original URL from a Great Suspender extension suspended tab URL.
@@ -774,4 +788,4 @@ async function getSpacesForBackup() {
 }
 
 // Export for testing
-export { getSpacesForBackup, normaliseTabUrl };
+export { addDuplicateMetadata, getSpacesForBackup, normaliseTabUrl };
