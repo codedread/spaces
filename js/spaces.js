@@ -397,19 +397,8 @@ async function handleImport() {
 }
 
 async function handleBackup() {
-    // strip out unnessary content from each space
-    const leanSpaces = (await fetchAllSpaces()).map(space => {
-        return {
-            name: space.name,
-            tabs: space.tabs.map(curTab => {
-                return {
-                    title: curTab.title,
-                    url: normaliseTabUrl(curTab.url),
-                    favIconUrl: curTab.favIconUrl,
-                };
-            }),
-        };
-    });
+    // Get all spaces in lean format for backup
+    const leanSpaces = await getSpacesForBackup();
 
     const blob = new Blob([JSON.stringify(leanSpaces)], {
         type: 'application/json',
@@ -758,5 +747,31 @@ function normaliseTabUrl(url) {
     return normalisedUrl;
 }
 
+/**
+ * Gets all spaces and transforms them into lean format for backup/export.
+ * Strips out unnecessary properties and normalizes URLs.
+ * 
+ * @returns {Promise<Object[]>} Promise resolving to array of lean space objects with only essential properties
+ * 
+ * @example
+ * const leanSpaces = await getSpacesForBackup();
+ * // returns: [{ name: 'Work', tabs: [{ title: 'Gmail', url: 'https://gmail.com', favIconUrl: 'icon.png' }] }]
+ */
+async function getSpacesForBackup() {
+    const allSpaces = await fetchAllSpaces();
+    return allSpaces.map(space => {
+        return {
+            name: space.name,
+            tabs: space.tabs.map(curTab => {
+                return {
+                    title: curTab.title,
+                    url: normaliseTabUrl(curTab.url),
+                    favIconUrl: curTab.favIconUrl,
+                };
+            }),
+        };
+    });
+}
+
 // Export for testing
-export { normaliseTabUrl };
+export { getSpacesForBackup, normaliseTabUrl };
