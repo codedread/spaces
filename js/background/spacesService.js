@@ -1098,8 +1098,8 @@ function filterInternalWindows(curWindow) {
         return true;
     }
 
-    // also filter out popup or panel window types
-    if (curWindow.type === 'popup' || curWindow.type === 'panel') {
+    // Also filter out popup, panel, or pwa window types.
+    if (['popup', 'panel', 'app'].includes(curWindow.type)) {
         return true;
     }
     return false;

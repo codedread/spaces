@@ -88,6 +88,14 @@ describe('filterInternalWindows', () => {
             };
             expect(filterInternalWindows(window)).toBe(true);
         });
+
+        test('should filter PWA window type', () => {
+            const window = {
+                tabs: [{ url: 'https://example.com' }],
+                type: 'app'
+            };
+            expect(filterInternalWindows(window)).toBe(true);
+        });
     });
 
     describe('edge cases', () => {
@@ -128,14 +136,6 @@ describe('filterInternalWindows', () => {
     });
 
     describe('chrome-specific window types', () => {
-        test('should not filter app window type', () => {
-            const window = {
-                tabs: [{ url: 'https://example.com' }],
-                type: 'app'
-            };
-            expect(filterInternalWindows(window)).toBe(false);
-        });
-
         test('should not filter devtools window type', () => {
             const window = {
                 tabs: [{ url: 'devtools://devtools/bundled/inspector.html' }],

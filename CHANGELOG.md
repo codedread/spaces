@@ -2,13 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.6] - 2025-??-??
+## [1.1.6] - 2025-09-17
 
 ### Changes
 
+- Fixed [issue #22](https://github.com/codedread/spaces/issues/22): Filter out PWA from the Spaces window.
 - Fixed [issue #16](https://github.com/codedread/spaces/issues/16): Stop duplicating tabs of a closed Space when tab is clicked from the Spaces window.
 - Fixed [issue #14](https://github.com/codedread/spaces/issues/14): Open Spaces windows on the currently-active display.
-- Increased unit test coverage from 8.11% to 10.32%.
+- Increased unit test coverage from 8.11% to 10.75%.
 
 
 ## [1.1.5] - 2025-09-08
