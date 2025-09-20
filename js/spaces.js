@@ -127,6 +127,7 @@ function updateButtons(space) {
         sessionId || windowId ? 'inline-block' : 'none';
     nodes.actionDelete.style.display =
         !windowId && sessionId ? 'inline-block' : 'none';
+    nodes.actionClose.style.display = windowId ? 'inline-block' : 'none';
 }
 
 function renderTabs(space) {
@@ -364,6 +365,30 @@ async function handleDelete() {
     }
 }
 
+async function handleClose() {
+  if (!globalSelectedSpace || !globalSelectedSpace.windowId) {
+    console.error("No opened window is currently selected.");
+    return;
+  }
+  const { windowId, name } = globalSelectedSpace;
+
+  // Only show confirm if the space is unnamed
+  const isUnnamed = !name || !name.trim();
+  if (isUnnamed) {
+    const confirm = window.confirm(
+      "Are you sure you want to close this window?"
+    );
+    if (!confirm) return;
+  }
+
+  await performClose(windowId);
+  await updateSpacesList();
+
+  // Clear the detail view since the closed window was selected
+  globalSelectedSpace = null;
+  renderSpaceDetail(false, false);
+}
+
 // import accepts either a newline separated list of urls or a json backup object
 async function handleImport() {
     let urlList;
@@ -504,6 +529,19 @@ async function performDelete(sessionId) {
     });
 }
 
+async function performClose(windowId) {
+  try {
+    const window = await chrome.windows.get(windowId);
+    if (window) {
+      await chrome.windows.remove(windowId);
+      return true;
+    }
+  } catch (error) {
+    console.error("Error closing window:", error);
+  }
+  return false;
+}
+
 /** @returns {Promise<Space>} */
 async function performSessionUpdate(newName, sessionId) {
     return chrome.runtime.sendMessage({
@@ -596,6 +634,9 @@ function addEventListeners() {
     });
     nodes.actionDelete.addEventListener('click', () => {
         handleDelete();
+    });
+    nodes.actionClose.addEventListener('click', () => {
+        handleClose();
     });
     nodes.actionImport.addEventListener('click', e => {
         e.preventDefault();
@@ -711,6 +752,7 @@ if (typeof window !== 'undefined') {
         nodes.actionSwitch = document.getElementById('actionSwitch');
         nodes.actionOpen = document.getElementById('actionOpen');
         nodes.actionEdit = document.getElementById('actionEdit');
+        nodes.actionClose = document.getElementById('actionClose');
         nodes.actionExport = document.getElementById('actionExport');
         nodes.actionBackup = document.getElementById('actionBackup');
         nodes.actionDelete = document.getElementById('actionDelete');
@@ -759,4 +801,4 @@ function normaliseTabUrl(url) {
 }
 
 // Export for testing
-export { normaliseTabUrl };
+export { normaliseTabUrl, performClose, handleClose };
