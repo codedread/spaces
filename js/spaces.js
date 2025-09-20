@@ -374,18 +374,17 @@ async function handleClose() {
     console.error("No opened window is currently selected.");
     return;
   }
-  const { windowId, name } = globalSelectedSpace;
+  const { windowId, sessionId } = globalSelectedSpace;
 
   // Only show confirm if the space is unnamed
-  const isUnnamed = !name || !name.trim();
-  if (isUnnamed) {
+  if (!sessionId) {
     const confirm = window.confirm(
       "Are you sure you want to close this window?"
     );
     if (!confirm) return;
   }
 
-  await performClose(windowId);
+  chrome.runtime.sendMessage({ action: 'closeWindow', windowId });
   await updateSpacesList();
 
   // Clear the detail view since the closed window was selected
@@ -520,19 +519,6 @@ async function performDelete(sessionId) {
         action: 'deleteSession',
         sessionId,
     });
-}
-
-async function performClose(windowId) {
-  try {
-    const window = await chrome.windows.get(windowId);
-    if (window) {
-      await chrome.windows.remove(windowId);
-      return true;
-    }
-  } catch (error) {
-    console.error("Error closing window:", error);
-  }
-  return false;
 }
 
 /** @returns {Promise<Space>} */
