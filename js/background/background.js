@@ -328,6 +328,21 @@ async function processMessage(request, sender) {
             }
             return undefined;
 
+        case 'closeWindow':
+            windowId = cleanParameter(request.windowId);
+            if(windowId) {
+                try {
+                    const window = await chrome.windows.get(windowId);
+                    if (window) {
+                        await chrome.windows.remove(windowId);
+                        return true;
+                    }
+                } catch (error) {
+                    console.error("Error closing window:", error);
+                }
+                return false;
+            }
+
         case 'updateSessionName':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.sessionName) {
