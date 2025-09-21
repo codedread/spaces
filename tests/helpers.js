@@ -60,6 +60,7 @@ export const setupDOMMocks = () => {
             reload: jest.fn(),
         },
         close: jest.fn(),
+        confirm: jest.fn(),
     };
 };
 

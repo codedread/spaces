@@ -369,7 +369,16 @@ async function handleDelete() {
     }
 }
 
-async function handleClose() {
+/**
+ * Closes the currently selected space's window after user confirmation (if unnamed).
+ * The arguments are only for testing purposes to allow dependency injection.
+ * @param {Function} updateSpacesListFn Function to refresh the spaces list after closing
+ * @param {Function} renderSpaceDetailFn Function to render space details (called with false, false to clear)
+ * @returns {Promise<void>}
+ */
+async function handleClose(
+    updateSpacesListFn = updateSpacesList,
+    renderSpaceDetailFn = renderSpaceDetail) {
   if (!globalSelectedSpace || !globalSelectedSpace.windowId) {
     console.error("No opened window is currently selected.");
     return;
@@ -378,18 +387,18 @@ async function handleClose() {
 
   // Only show confirm if the space is unnamed
   if (!sessionId) {
-    const confirm = window.confirm(
-      "Are you sure you want to close this window?"
-    );
+    const confirm = window.confirm("Are you sure you want to close this window?");
     if (!confirm) return;
   }
 
-  chrome.runtime.sendMessage({ action: 'closeWindow', windowId });
-  await updateSpacesList();
+  const success = await chrome.runtime.sendMessage({ action: 'closeWindow', windowId });
+  if (!success) {
+    console.warn("Failed to close window - it may have already been closed");
+  }
 
-  // Clear the detail view since the closed window was selected
+  await updateSpacesListFn();
   globalSelectedSpace = null;
-  renderSpaceDetail(false, false);
+  renderSpaceDetailFn(false, false);
 }
 
 // import accepts either a newline separated list of urls or a json backup object
@@ -816,4 +825,13 @@ async function getSpacesForBackup() {
 }
 
 // Export for testing
-export { addDuplicateMetadata, getSpacesForBackup, normaliseTabUrl };
+export {
+    addDuplicateMetadata,
+    getSpacesForBackup,
+    handleClose,
+    normaliseTabUrl,
+};
+
+// Export globalSelectedSpace for testing (mutable reference)
+export function setGlobalSelectedSpace(space) { globalSelectedSpace = space; }
+export function getGlobalSelectedSpace() { return globalSelectedSpace; }

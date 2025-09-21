@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.7] - 2025-??-??
+
+### Changes
+
+- Fixed [issue #20](https://github.com/codedread/spaces/issues/20): Close browser windows from the Spaces window.
+- Increased unit test coverage from 10.75% to 11.41%.
+
+
 ## [1.1.6] - 2025-09-17
 
 ### Changes
