@@ -3,6 +3,14 @@
 import { db, Server } from './db.js';
 
 /**
+ * @typedef WindowBounds
+ * @property {number} left The x-coordinate of the window's left edge
+ * @property {number} top The y-coordinate of the window's top edge
+ * @property {number} width The width of the window
+ * @property {number} height The height of the window
+ */
+
+/**
  * @typedef Session
  * @property {number} id Auto-generated indexedDb object id
  * @property {number} sessionHash A hash formed from the combined urls in the session window
@@ -10,6 +18,7 @@ import { db, Server } from './db.js';
  * @property {Array} tabs An array of chrome tab objects (often taken from the chrome window obj)
  * @property {Array} history An array of chrome tab objects that have been removed from the session
  * @property {Date} lastAccess Timestamp that gets updated with every window focus
+ * @property {WindowBounds?} windowBounds Optional saved window position and size
  */
 
 /**

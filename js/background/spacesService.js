@@ -25,6 +25,7 @@ class SpacesService {
     constructor() {
         this.tabHistoryUrlMap = {};
         this.closedWindowIds = {};
+        this.boundsUpdateTimers = {};
         this.sessionUpdateTimers = {};
         this.historyQueue = [];
         this.eventQueueCount = 0;
@@ -405,6 +406,50 @@ class SpacesService {
         return null;
     }
 
+    /**
+     * Captures and stores window bounds for a window with debouncing.
+     * This is called when window bounds change to ensure we have current bounds
+     * without excessive database writes during rapid resize/move operations.
+     *
+     * @param {number} windowId - The ID of the window to capture bounds for
+     * @param {Object} bounds - The window bounds object with left, top, width, height
+     * @returns {Promise<void>}
+     */
+    async captureWindowBounds(windowId, bounds) {
+        await this.ensureInitialized();
+        
+        const session = await this.getSessionByWindowId(windowId);
+        if (session && session.id) {
+            // Update bounds in memory immediately for responsiveness
+            session.windowBounds = {
+                left: bounds.left,
+                top: bounds.top, 
+                width: bounds.width,
+                height: bounds.height
+            };
+            
+            if (debug) {
+                // eslint-disable-next-line no-console
+                console.log(`Captured window bounds for session ${session.id}:`, session.windowBounds);
+            }
+
+            // Debounce database writes to avoid excessive I/O during rapid resize/move
+            clearTimeout(this.boundsUpdateTimers[windowId]);
+            this.boundsUpdateTimers[windowId] = setTimeout(async () => {
+                try {
+                    // Save bounds to database after debounce period
+                    await this._updateSessionSync(session);
+                    if (debug) {
+                        // eslint-disable-next-line no-console
+                        console.log(`Saved window bounds to database for session ${session.id}`);
+                    }
+                } catch (error) {
+                    console.error(`Error saving bounds for session ${session.id}:`, error);
+                }
+            }, 1000); // 1 second debounce - adjust as needed
+        }
+    }
+
     // event listener functions for window and tab events
     // (events are received and screened first in background.js)
     // -----------------------------------------------------------------------------------------
@@ -530,6 +575,7 @@ class SpacesService {
             }
 
             this.closedWindowIds[windowId] = true;
+            clearTimeout(this.boundsUpdateTimers[windowId]);
             clearTimeout(this.sessionUpdateTimers[windowId]);
         }
 
@@ -538,7 +584,7 @@ class SpacesService {
             // if this is a saved session then just remove the windowId reference
             if (session.id) {
                 session.windowId = false;
-                // Persist the cleared windowId to database with sync
+                // Persist the window to database with sync
                 await this._updateSessionSync(session);
 
                 // else if it is temporary session then remove the session from the cache
@@ -856,11 +902,12 @@ class SpacesService {
      * @param {string} sessionName - The name for the new session
      * @param {Array<Object>} tabs - Array of tab objects containing URL and other tab properties
      * @param {number|false} windowId - The window ID to associate with this session, or false for no association
+     * @param {WindowBounds} [windowBounds] - Optional window bounds to save with the session
      * @returns {Promise<Session|null>} Promise that resolves to:
      *   - Session object with id property if successfully created
      *   - null if session creation failed, no tabs were provided, or attempted on already saved session
      */
-    async saveNewSession(sessionName, tabs, windowId) {
+    async saveNewSession(sessionName, tabs, windowId, windowBounds) {
         await this.ensureInitialized();
         
         if (!tabs) {
@@ -909,6 +956,11 @@ class SpacesService {
         session.sessionHash = sessionHash;
         session.tabs = tabs;
         session.lastAccess = new Date();
+        
+        // Add window bounds if provided
+        if (windowBounds) {
+            session.windowBounds = windowBounds;
+        }
 
         // save session to db - this should only be called on temporary sessions (id: false)
         try {

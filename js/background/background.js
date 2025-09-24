@@ -11,6 +11,7 @@ import { dbService } from './dbService.js';
 import { spacesService } from './spacesService.js';
 import * as common from '../common.js';
 /** @typedef {common.Space} Space */
+/** @typedef {import('./dbService.js').WindowBounds} WindowBounds */
 
 // eslint-disable-next-line no-unused-vars, no-var
 let spacesPopupWindowId = false;
@@ -167,6 +168,19 @@ export function initializeServiceWorker() {
         }
         
         spacesService.handleWindowFocussed(windowId);
+    });
+
+    // Listen for window bounds changes (resize/move) with debouncing
+    chrome.windows.onBoundsChanged.addListener(async (window) => {
+        if (checkInternalSpacesWindows(window.id, false)) return;
+        
+        // Capture bounds - await ensures proper event ordering and timer management
+        await spacesService.captureWindowBounds(window.id, {
+            left: window.left,
+            top: window.top,
+            width: window.width, 
+            height: window.height
+        });
     });
 
     // add listeners for message requests from other extension pages (spaces.html & tab.html)
@@ -335,7 +349,14 @@ async function processMessage(request, sender) {
             }
             
             try {
-                await chrome.windows.get(windowId);
+                const window = await chrome.windows.get(windowId);
+                // Capture bounds before programmatically closing the window
+                await spacesService.captureWindowBounds(windowId, {
+                    left: window.left,
+                    top: window.top,
+                    width: window.width,
+                    height: window.height
+                });
                 await chrome.windows.remove(windowId);
                 return true;
             } catch (error) {
@@ -909,7 +930,13 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld) {
     const result = await spacesService.saveNewSession(
         sessionName,
         curWindow.tabs,
-        curWindow.id
+        curWindow.id,
+        { 
+            left: curWindow.left, 
+            top: curWindow.top, 
+            width: curWindow.width, 
+            height: curWindow.height 
+        },
     );
     return result ?? false;
 }
