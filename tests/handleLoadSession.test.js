@@ -206,7 +206,7 @@ describe('handleLoadSession', () => {
               });
           });
 
-          test('should handle partially defined bounds (gracefully fail to fallback)', async () => {
+          test('should handle partially defined bounds (falls back to display area)', async () => {
               mockSession.windowBounds = {
                   left: 100,
                   top: 50
@@ -215,13 +215,63 @@ describe('handleLoadSession', () => {
 
               await handleLoadSession(mockSession.id);
 
-              // Should use stored bounds even if incomplete
+              // Should fallback to display area bounds
               expect(global.chrome.windows.create).toHaveBeenCalledWith({
                   url: ['https://example.com', 'https://test.com'],
-                  height: undefined,
-                  width: undefined,
-                  top: 50,
-                  left: 100
+                  height: 980,
+                  width: 1820,
+                  top: 0,
+                  left: 0
+              });
+          });
+      });
+
+      describe('bounds edge cases with display area', () => {
+          test('should fallback if session bounds are negative', async () => {
+              mockSession.windowBounds = { left: -10, top: -10, width: 800, height: 600 };
+              await handleLoadSession(mockSession.id);
+              expect(global.chrome.windows.create).toHaveBeenCalledWith({
+                  url: ['https://example.com', 'https://test.com'],
+                  height: EXPECTED_FALLBACK_BOUNDS.height,
+                  width: EXPECTED_FALLBACK_BOUNDS.width,
+                  top: EXPECTED_FALLBACK_BOUNDS.top,
+                  left: EXPECTED_FALLBACK_BOUNDS.left
+              });
+          });
+
+          test('should fallback if session bounds extend beyond display', async () => {
+              mockSession.windowBounds = { left: 100, top: 100, width: 2000, height: 1200 };
+              await handleLoadSession(mockSession.id);
+              expect(global.chrome.windows.create).toHaveBeenCalledWith({
+                  url: ['https://example.com', 'https://test.com'],
+                  height: EXPECTED_FALLBACK_BOUNDS.height,
+                  width: EXPECTED_FALLBACK_BOUNDS.width,
+                  top: EXPECTED_FALLBACK_BOUNDS.top,
+                  left: EXPECTED_FALLBACK_BOUNDS.left
+              });
+          });
+
+          test('should use bounds if they fit exactly within display', async () => {
+              mockSession.windowBounds = { left: 0, top: 0, width: 1920, height: 1080 };
+              await handleLoadSession(mockSession.id);
+              expect(global.chrome.windows.create).toHaveBeenCalledWith({
+                  url: ['https://example.com', 'https://test.com'],
+                  height: 1080,
+                  width: 1920,
+                  top: 0,
+                  left: 0
+              });
+          });
+
+          test('should fallback if bounds are just barely outside display', async () => {
+              mockSession.windowBounds = { left: 0, top: 0, width: 1921, height: 1081 };
+              await handleLoadSession(mockSession.id);
+              expect(global.chrome.windows.create).toHaveBeenCalledWith({
+                  url: ['https://example.com', 'https://test.com'],
+                  height: EXPECTED_FALLBACK_BOUNDS.height,
+                  width: EXPECTED_FALLBACK_BOUNDS.width,
+                  top: EXPECTED_FALLBACK_BOUNDS.top,
+                  left: EXPECTED_FALLBACK_BOUNDS.left
               });
           });
       });

@@ -840,24 +840,16 @@ async function handleLoadSession(sessionId, tabUrl) {
             return curTab.url;
         });
 
-        // Display new session with restored bounds if available, otherwise use default display area.
-        let windowOptions = { url: urls };
-        
-        if (session.windowBounds) {
-            // Use stored window bounds for restoration
-            windowOptions.height = session.windowBounds.height;
-            windowOptions.width = session.windowBounds.width;
-            windowOptions.top = session.windowBounds.top;
-            windowOptions.left = session.windowBounds.left;
-        } else {
-            // Fallback to default display area positioning
-            const workArea = await getTargetDisplayWorkArea();
-            windowOptions.height = workArea.height - 100;
-            windowOptions.width = workArea.width - 100;
-            windowOptions.top = workArea.top;
-            windowOptions.left = workArea.left;
-        }
-        
+        // Display new session with calculated bounds
+        const workArea = await getTargetDisplayWorkArea();
+        const bounds = calculateSessionBounds(workArea, session.windowBounds);
+        let windowOptions = {
+            url: urls,
+            height: bounds.height,
+            width: bounds.width,
+            top: bounds.top,
+            left: bounds.left
+        };
         const newWindow = await chrome.windows.create(windowOptions);
 
         // force match this new window to the session
@@ -1226,6 +1218,40 @@ function moveTabToWindow(tab, windowId) {
 // Module-level helper functions.
 
 /**
+ * Determines the window bounds to use for a session restore.
+ * @param {WindowBounds} displayBounds - The target display work area bounds
+ * @param {WindowBounds} sessionBounds - The stored session bounds
+ * @returns {WindowBounds} - The bounds to use for the window
+ */
+function calculateSessionBounds(displayBounds, sessionBounds) {
+    if (!sessionBounds
+        || typeof sessionBounds.left !== 'number'
+        || typeof sessionBounds.top !== 'number'
+        || typeof sessionBounds.width !== 'number'
+        || typeof sessionBounds.height !== 'number'
+        || sessionBounds.left < displayBounds.left
+        || sessionBounds.top < displayBounds.top
+        || sessionBounds.left + sessionBounds.width > displayBounds.left + displayBounds.width
+        || sessionBounds.top + sessionBounds.height > displayBounds.top + displayBounds.height
+    ) {
+        // Fallback to display default area positioning (minus offset)
+        return {
+            left: displayBounds.left,
+            top: displayBounds.top,
+            width: displayBounds.width - 100,
+            height: displayBounds.height - 100,
+        };
+    }
+    // Otherwise, use the stored session bounds
+    return {
+        left: sessionBounds.left,
+        top: sessionBounds.top,
+        width: sessionBounds.width,
+        height: sessionBounds.height
+    };
+}
+
+/**
  * Ensures the parameter is a number.
  * @param {string|number} param - The parameter to clean.
  * @returns {number} - The cleaned parameter.
@@ -1352,6 +1378,7 @@ async function requestAllSpaces() {
 
 // Exports for testing.
 export {
+    calculateSessionBounds,
     cleanParameter,
     focusOrLoadTabInWindow,
     getEffectiveTabUrl,
