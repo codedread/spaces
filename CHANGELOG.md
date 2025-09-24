@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Work on [issue #10](https://github.com/codedread/spaces/issues/10): Remember named space window bounds in the internal database.
 - Fixed [issue #20](https://github.com/codedread/spaces/issues/20): Close browser windows from the Spaces window.
-- Increased unit test coverage from 10.75% to 14.75%.
+- Increased unit test coverage from 10.75% to 16.58%.
 
 ## [1.1.6] - 2025-09-17
 

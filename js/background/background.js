@@ -840,17 +840,25 @@ async function handleLoadSession(sessionId, tabUrl) {
             return curTab.url;
         });
 
-        // Display new session over most of the appropriate display.
-        const workArea = await getTargetDisplayWorkArea();
-        const windowHeight = workArea.height - 100;
-        const windowWidth = workArea.width - 100;
-        const newWindow = await chrome.windows.create({
-            url: urls,
-            height: windowHeight,
-            width: windowWidth,
-            top: workArea.top,
-            left: workArea.left,
-        });
+        // Display new session with restored bounds if available, otherwise use default display area.
+        let windowOptions = { url: urls };
+        
+        if (session.windowBounds) {
+            // Use stored window bounds for restoration
+            windowOptions.height = session.windowBounds.height;
+            windowOptions.width = session.windowBounds.width;
+            windowOptions.top = session.windowBounds.top;
+            windowOptions.left = session.windowBounds.left;
+        } else {
+            // Fallback to default display area positioning
+            const workArea = await getTargetDisplayWorkArea();
+            windowOptions.height = workArea.height - 100;
+            windowOptions.width = workArea.width - 100;
+            windowOptions.top = workArea.top;
+            windowOptions.left = workArea.left;
+        }
+        
+        const newWindow = await chrome.windows.create(windowOptions);
 
         // force match this new window to the session
         await spacesService.matchSessionToWindow(session, newWindow);
@@ -1348,5 +1356,6 @@ export {
     focusOrLoadTabInWindow,
     getEffectiveTabUrl,
     getTargetDisplayWorkArea,
+    handleLoadSession,
     requestAllSpaces,
 };

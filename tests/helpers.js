@@ -26,7 +26,10 @@ export const setupChromeMocks = () => {
             update: jest.fn(),
         },
         windows: {
+            create: jest.fn(),
+            get: jest.fn(),
             getCurrent: jest.fn(),
+            update: jest.fn(),
         }
     };
 };
