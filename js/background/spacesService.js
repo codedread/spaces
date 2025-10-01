@@ -6,7 +6,7 @@
 
 /** @typedef {import('./dbService.js').Session} Session */
 
-import { dbService } from './dbService.js';
+import { dbService, getSchema, DB_VERSION } from './dbService.js';
 
 // Module-level properties
 const debug = false;
@@ -369,6 +369,59 @@ class SpacesService {
     async getAllSessions() {
         await this.ensureInitialized();
         return [...(this.sessions || [])];
+    }
+
+    /**
+     * Exports the entire database for debugging purposes with anonymized data.
+     * @returns {Promise<Object>} Promise that resolves to an object containing:
+     *   - version: database version
+     *   - schema: database schema
+     *   - sessions: anonymized session data
+     */
+    async exportDatabaseForDebugging() {
+        await this.ensureInitialized();
+
+        const anonymizedSessions = (await dbService.fetchAllSessions()).map((session, index) => {
+            const anonymizedSession = { ...session };
+            if (session.name) anonymizedSession.name = `Space_${index + 1}`;
+            if (session.tabs && Array.isArray(session.tabs)) {
+                anonymizedSession.tabs = session.tabs.map((tab, tabIndex) => 
+                    this._anonymizeTab(tab, tabIndex + 1, 'Tab')
+                );
+            }
+            if (session.history && Array.isArray(session.history)) {
+                anonymizedSession.history = session.history.map((historyTab, historyIndex) => 
+                    this._anonymizeTab(historyTab, historyIndex + 1, 'History Tab')
+                );
+            }
+            return anonymizedSession;
+        });
+
+        return {
+            version: {
+                database: DB_VERSION,
+                extension: await this.fetchLastVersion(),
+                manifest: chrome.runtime.getManifest().version
+            },
+            schema: getSchema(),
+            sessions: anonymizedSessions,
+        };
+    }
+
+    /**
+     * Anonymizes a tab object for debugging export
+     * @private
+     * @param {Object} tab - The tab object to anonymize
+     * @param {number} index - The index number for generating unique placeholder values
+     * @param {string} prefix - The prefix for the title (e.g., 'Tab' or 'History Tab')
+     * @returns {Object} Anonymized tab object
+     */
+    _anonymizeTab(tab, index, prefix) {
+        const anonymizedTab = { ...tab };
+        if (tab.url) anonymizedTab.url = `https://example-${index}.com/path`;
+        if (tab.title) anonymizedTab.title = `${prefix} ${index}`;
+        if (tab.favIconUrl) anonymizedTab.favIconUrl = 'data:anonymized-favicon';
+        return anonymizedTab;
     }
 
     /**

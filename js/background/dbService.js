@@ -238,3 +238,6 @@ class DbService {
 
 // Export an instantiated object
 export const dbService = new DbService();
+
+// Export schema function and constants for debugging purposes
+export { getSchema, DB_VERSION, DB_SERVER, DB_SESSIONS };

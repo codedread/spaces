@@ -232,6 +232,20 @@ export function initializeServiceWorker() {
 
     console.log(`Initializing spacesService...`);
     spacesService.initialiseSpaces();
+
+    // Make debugging function available globally in service worker scope
+    globalThis.spaces = {
+        async dumpAnonymizedDatabase() {
+            try {
+                const exportData = await spacesService.exportDatabaseForDebugging();
+                const jsonString = JSON.stringify(exportData, null, 2);
+                const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
+                await chrome.downloads.download({ url: dataUrl, filename: 'spaces-db.json' });
+            } catch (error) {
+                console.error('Failed to export database for debugging:', error);
+            }
+        }
+    };
 }
 
 /**
