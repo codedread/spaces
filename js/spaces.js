@@ -12,6 +12,7 @@ const UNSAVED_SESSION = `<em>${UNSAVED_SESSION_NAME}</em>`;
 const nodes = {};
 let globalSelectedSpace;
 let bannerState;
+let isSaving = false;
 
 // METHODS FOR RENDERING SIDENAV (spaces list)
 
@@ -312,37 +313,42 @@ function handleAutoUpdateRequest(spaces) {
 }
 
 async function handleNameSave() {
-    const newName = nodes.nameFormInput.value;
-    const oldName = globalSelectedSpace.name;
-    const { sessionId } = globalSelectedSpace;
-    const { windowId } = globalSelectedSpace;
+    if (isSaving) return;
+    isSaving = true;
+    
+    try {
+        const newName = nodes.nameFormInput.value;
+        const { name, sessionId, windowId } = globalSelectedSpace;
 
-    // if invalid name set then revert back to non-edit mode
-    if (newName === oldName || newName.trim() === '') {
-        updateNameForm(globalSelectedSpace);
-        toggleNameEditMode(false);
-        return;
-    }
+        // if invalid name set then revert back to non-edit mode
+        if (newName === name || newName.trim() === '') {
+            updateNameForm(globalSelectedSpace);
+            toggleNameEditMode(false);
+            return;
+        }
 
-    const canOverwrite = await checkSessionOverwrite(newName);
-    if (!canOverwrite) {
-        updateNameForm(globalSelectedSpace);
-        toggleNameEditMode(false);
-        return;
-    }
+        const canOverwrite = await checkSessionOverwrite(newName);
+        if (!canOverwrite) {
+            updateNameForm(globalSelectedSpace);
+            toggleNameEditMode(false);
+            return;
+        }
 
-    // otherwise call the save service
-    if (sessionId) {
-        const session = await performSessionUpdate(newName, sessionId);
-        if (session) reroute(session.id, false, true);
-    } else if (windowId) {
-        const session = await performNewSessionSave(newName, windowId);
-        if (session) reroute(session.id, false, true);
-    }
+        // otherwise call the save service
+        if (sessionId) {
+            const session = await performSessionUpdate(newName, sessionId);
+            if (session) reroute(session.id, false, true);
+        } else if (windowId) {
+            const session = await performNewSessionSave(newName, windowId);
+            if (session) reroute(session.id, false, true);
+        }
 
-    // handle banner
-    if (bannerState === 1) {
-        setBannerState(2);
+        // handle banner
+        if (bannerState === 1) {
+            setBannerState(2);
+        }
+    } finally {
+        isSaving = false;
     }
 }
 
