@@ -1024,6 +1024,10 @@ async function handleImportNewSession(urlList) {
 async function handleUpdateSessionName(sessionId, sessionName, deleteOld) {
     // check to make sure session name doesn't already exist
     const existingSession = await dbService.fetchSessionByName(sessionName);
+    // Fix: allow renaming when only capitalization is changed
+if (existingSession && existingSession.id === sessionId) {
+    return spacesService.updateSessionName(sessionId, sessionName) ?? false;
+}
 
     // if session with same name already exist, then prompt to override the existing session
     if (existingSession) {
