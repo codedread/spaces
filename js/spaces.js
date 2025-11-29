@@ -18,7 +18,7 @@ let isSaving = false;
 
 function renderSpacesList(spaces) {
     let spaceEl;
-    
+
     // Clear globalSelectedSpace at the start - it will be set if we find a match
     globalSelectedSpace = null;
 
@@ -57,7 +57,7 @@ function renderSpaceListEl(space) {
     // Check if this space should be selected based on current hash
     const currentSessionId = getHashVariable('sessionId', window.location.href);
     const currentWindowId = getHashVariable('windowId', window.location.href);
-    
+
     if (
         (currentSessionId && space.sessionId && currentSessionId == space.sessionId) ||
         (currentWindowId && space.windowId && currentWindowId == space.windowId)
@@ -169,13 +169,13 @@ function renderTabListEl(tab, space) {
     // Use the provided favicon URL if it exists and is not a generic Chrome theme icon.
     if (tab.favIconUrl && tab.favIconUrl.indexOf('chrome://theme') < 0) {
         faviconSrc = tab.favIconUrl;
-    // Otherwise, if the tab has a URL, construct a URL to fetch the favicon
-    // via the extension's _favicon API. This is the recommended approach for Manifest V3.
+        // Otherwise, if the tab has a URL, construct a URL to fetch the favicon
+        // via the extension's _favicon API. This is the recommended approach for Manifest V3.
     } else if (tab.url) {
         const pageUrl = encodeURIComponent(tab.url);
         faviconSrc = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${pageUrl}&size=16`;
     }
-    
+
     if (faviconSrc) {
         faviconEl.setAttribute('src', faviconSrc);
     }
@@ -312,10 +312,10 @@ function handleAutoUpdateRequest(spaces) {
     }
 }
 
-async function handleNameSave() {
+export async function handleNameSave() {
     if (isSaving) return;
     isSaving = true;
-    
+
     try {
         const newName = nodes.nameFormInput.value;
         const { name, sessionId, windowId } = globalSelectedSpace;
@@ -327,7 +327,13 @@ async function handleNameSave() {
             return;
         }
 
-        const canOverwrite = await checkSessionOverwrite(newName);
+        // Spaces are looked up in the database by case-insensitive name. That means we do not allow
+        // two spaces to have case-insensitive identical names (e.g. "main" and "Main"). If the new
+        // name is a case-insensitive match of the previous name, we do not need to check overwrite.
+        // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
+        //     the requestSessionPresence message should not be sent.
+        const caseInsensitiveMatch = name.toLowerCase() === newName.toLowerCase();
+        const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
         if (!canOverwrite) {
             updateNameForm(globalSelectedSpace);
             toggleNameEditMode(false);
@@ -385,26 +391,26 @@ async function handleDelete() {
 async function handleClose(
     updateSpacesListFn = updateSpacesList,
     renderSpaceDetailFn = renderSpaceDetail) {
-  if (!globalSelectedSpace || !globalSelectedSpace.windowId) {
-    console.error("No opened window is currently selected.");
-    return;
-  }
-  const { windowId, sessionId } = globalSelectedSpace;
+    if (!globalSelectedSpace || !globalSelectedSpace.windowId) {
+        console.error("No opened window is currently selected.");
+        return;
+    }
+    const { windowId, sessionId } = globalSelectedSpace;
 
-  // Only show confirm if the space is unnamed
-  if (!sessionId) {
-    const confirm = window.confirm("Are you sure you want to close this window?");
-    if (!confirm) return;
-  }
+    // Only show confirm if the space is unnamed
+    if (!sessionId) {
+        const confirm = window.confirm("Are you sure you want to close this window?");
+        if (!confirm) return;
+    }
 
-  const success = await chrome.runtime.sendMessage({ action: 'closeWindow', windowId });
-  if (!success) {
-    console.warn("Failed to close window - it may have already been closed");
-  }
+    const success = await chrome.runtime.sendMessage({ action: 'closeWindow', windowId });
+    if (!success) {
+        console.warn("Failed to close window - it may have already been closed");
+    }
 
-  await updateSpacesListFn();
-  globalSelectedSpace = null;
-  renderSpaceDetailFn(false, false);
+    await updateSpacesListFn();
+    globalSelectedSpace = null;
+    renderSpaceDetailFn(false, false);
 }
 
 // import accepts either a newline separated list of urls or a json backup object
@@ -712,48 +718,49 @@ async function updateSpaceDetail(useCachedSpace) {
  * Initialize the spaces window.
  * This function should be called from the HTML page after the DOM is loaded.
  */
-// Auto-initialize when loaded in browser context
-if (typeof window !== 'undefined') {
-    window.onload = () => {
-        // initialise global handles to key elements (singletons)
-        nodes.home = document.getElementById('spacesHome');
-        nodes.openSpaces = document.getElementById('openSpaces');
-        nodes.closedSpaces = document.getElementById('closedSpaces');
-        nodes.activeTabs = document.getElementById('activeTabs');
-        nodes.historicalTabs = document.getElementById('historicalTabs');
-        nodes.spaceDetailContainer = document.querySelector(
-            '.content .contentBody'
-        );
-        nodes.nameForm = document.querySelector('#nameForm');
-        nodes.nameFormDisplay = document.querySelector('#nameForm span');
-        nodes.nameFormInput = document.querySelector('#nameForm input');
-        nodes.actionSwitch = document.getElementById('actionSwitch');
-        nodes.actionOpen = document.getElementById('actionOpen');
-        nodes.actionEdit = document.getElementById('actionEdit');
-        nodes.actionClose = document.getElementById('actionClose');
-        nodes.actionExport = document.getElementById('actionExport');
-        nodes.actionBackup = document.getElementById('actionBackup');
-        nodes.actionDelete = document.getElementById('actionDelete');
-        nodes.actionImport = document.getElementById('actionImport');
-        nodes.banner = document.getElementById('banner');
-        nodes.modalBlocker = document.querySelector('.blocker');
-        nodes.modalContainer = document.querySelector('.modal');
-        nodes.modalInput = document.getElementById('importTextArea');
-        nodes.modalButton = document.getElementById('importBtn');
+export function initializeSpaces() {
+    // initialise global handles to key elements (singletons)
+    nodes.home = document.getElementById('spacesHome');
+    nodes.openSpaces = document.getElementById('openSpaces');
+    nodes.closedSpaces = document.getElementById('closedSpaces');
+    nodes.activeTabs = document.getElementById('activeTabs');
+    nodes.historicalTabs = document.getElementById('historicalTabs');
+    nodes.spaceDetailContainer = document.querySelector(
+        '.content .contentBody'
+    );
+    nodes.nameForm = document.querySelector('#nameForm');
+    nodes.nameFormDisplay = document.querySelector('#nameForm span');
+    nodes.nameFormInput = document.querySelector('#nameForm input');
+    nodes.actionSwitch = document.getElementById('actionSwitch');
+    nodes.actionOpen = document.getElementById('actionOpen');
+    nodes.actionEdit = document.getElementById('actionEdit');
+    nodes.actionClose = document.getElementById('actionClose');
+    nodes.actionExport = document.getElementById('actionExport');
+    nodes.actionBackup = document.getElementById('actionBackup');
+    nodes.actionDelete = document.getElementById('actionDelete');
+    nodes.actionImport = document.getElementById('actionImport');
+    nodes.banner = document.getElementById('banner');
+    nodes.modalBlocker = document.querySelector('.blocker');
+    nodes.modalContainer = document.querySelector('.modal');
+    nodes.modalInput = document.getElementById('importTextArea');
+    nodes.modalButton = document.getElementById('importBtn');
 
-        nodes.home.setAttribute('href', chrome.runtime.getURL('spaces.html'));
+    nodes.home.setAttribute('href', chrome.runtime.getURL('spaces.html'));
 
-        // initialise event listeners for static elements
-        addEventListeners();
+    // initialise event listeners for static elements
+    addEventListeners();
 
-        // render side nav
-        updateSpacesList();
+    // render side nav
+    updateSpacesList();
 
-        // render main content
-        updateSpaceDetail();
-    };
+    // render main content
+    updateSpaceDetail();
 }
 
+// Auto-initialize when loaded in browser context
+if (typeof window !== 'undefined') {
+    window.onload = initializeSpaces;
+}
 // Module-level helper functions.
 
 /**
@@ -841,3 +848,8 @@ export {
 // Export globalSelectedSpace for testing (mutable reference)
 export function setGlobalSelectedSpace(space) { globalSelectedSpace = space; }
 export function getGlobalSelectedSpace() { return globalSelectedSpace; }
+
+// Export function to set nodes for testing (avoids calling initializeSpaces)
+export function setNodesForTesting(testNodes) {
+    Object.assign(nodes, testNodes);
+}

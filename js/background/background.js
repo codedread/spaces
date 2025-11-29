@@ -10,6 +10,7 @@
 import { dbService } from './dbService.js';
 import { spacesService } from './spacesService.js';
 import * as common from '../common.js';
+/** @typedef {common.SessionPresence} SessionPresence */
 /** @typedef {common.Space} Space */
 /** @typedef {import('./dbService.js').WindowBounds} WindowBounds */
 
@@ -41,17 +42,17 @@ async function rediscoverWindowByUrl(storageKey, htmlFilename) {
 
     // If not in storage or window doesn't exist, search for window by URL
     const targetUrl = chrome.runtime.getURL(htmlFilename);
-    const allWindows = await chrome.windows.getAll({populate: true});
-    
+    const allWindows = await chrome.windows.getAll({ populate: true });
+
     for (const window of allWindows) {
         for (const tab of window.tabs) {
             if (tab.url && tab.url.startsWith(targetUrl)) {
-                await chrome.storage.local.set({[storageKey]: window.id});
+                await chrome.storage.local.set({ [storageKey]: window.id });
                 return window.id;
             }
         }
     }
-    
+
     return false;
 }
 
@@ -166,19 +167,19 @@ export function initializeServiceWorker() {
                 await closePopupWindow();
             }
         }
-        
+
         spacesService.handleWindowFocussed(windowId);
     });
 
     // Listen for window bounds changes (resize/move) with debouncing
     chrome.windows.onBoundsChanged.addListener(async (window) => {
         if (checkInternalSpacesWindows(window.id, false)) return;
-        
+
         // Capture bounds - await ensures proper event ordering and timer management
         await spacesService.captureWindowBounds(window.id, {
             left: window.left,
             top: window.top,
-            width: window.width, 
+            width: window.width,
             height: window.height
         });
     });
@@ -196,7 +197,7 @@ export function initializeServiceWorker() {
             try {
                 // Ensure spacesService is initialized before processing any message
                 await spacesService.ensureInitialized();
-                
+
                 const response = await processMessage(request, sender);
                 if (response !== undefined) {
                     sendResponse(response);
@@ -206,7 +207,7 @@ export function initializeServiceWorker() {
                 sendResponse(false);
             }
         })();
-        
+
         // We must return true synchronously to keep the message port open
         // for our async sendResponse() calls
         return true;
@@ -361,7 +362,7 @@ async function processMessage(request, sender) {
             if (!windowId) {
                 return false;
             }
-            
+
             try {
                 const window = await chrome.windows.get(windowId);
                 // Capture bounds before programmatically closing the window
@@ -755,7 +756,11 @@ function checkInternalSpacesWindows(windowId, windowClosed) {
  */
 async function requestSessionPresence(sessionName) {
     const session = await dbService.fetchSessionByName(sessionName);
-    return { exists: !!session, isOpen: !!session && !!session.windowId };
+    return {
+        exists: !!session,
+        isOpen: !!session && !!session.windowId,
+        sessionName: session?.name || false,
+    };
 }
 
 /**
@@ -798,7 +803,7 @@ async function requestSpaceFromWindowId(windowId) {
         };
         return space;
 
-    // otherwise build a space object out of the actual window
+        // otherwise build a space object out of the actual window
     } else {
         try {
             const window = await chrome.windows.get(windowId, { populate: true });
@@ -827,11 +832,11 @@ async function requestSpaceFromWindowId(windowId) {
  */
 async function requestSpaceFromSessionId(sessionId) {
     const session = await dbService.fetchSessionById(sessionId);
-    
+
     if (!session) {
         return null;
     }
-    
+
     return {
         sessionId: session.id,
         windowId: session.windowId,
@@ -893,12 +898,12 @@ async function handleLoadSession(sessionId, tabUrl) {
             await focusOrLoadTabInWindow(newWindow, tabUrl);
         }
 
-                /* session.tabs.forEach(function (curTab) {
-                chrome.tabs.create({windowId: newWindow.id, url: curTab.url, pinned: curTab.pinned, active: false});
-            });
+        /* session.tabs.forEach(function (curTab) {
+        chrome.tabs.create({windowId: newWindow.id, url: curTab.url, pinned: curTab.pinned, active: false});
+    });
 
-            const tabs = await chrome.tabs.query({windowId: newWindow.id, index: 0});
-            chrome.tabs.remove(tabs[0].id); */
+    const tabs = await chrome.tabs.query({windowId: newWindow.id, index: 0});
+    chrome.tabs.remove(tabs[0].id); */
     }
 }
 
@@ -945,11 +950,11 @@ async function handleSaveNewSession(windowId, sessionName, deleteOld) {
         sessionName,
         curWindow.tabs,
         curWindow.id,
-        { 
-            left: curWindow.left, 
-            top: curWindow.top, 
-            width: curWindow.width, 
-            height: curWindow.height 
+        {
+            left: curWindow.left,
+            top: curWindow.top,
+            width: curWindow.width,
+            height: curWindow.height
         },
     );
     return result ?? false;
@@ -977,7 +982,7 @@ async function handleRestoreFromBackup(space, deleteOld) {
             );
             return null;
         }
-        
+
         // if we choose to overwrite, delete the existing session
         await handleDeleteSession(existingSession.id);
     }
@@ -1024,24 +1029,22 @@ async function handleImportNewSession(urlList) {
 async function handleUpdateSessionName(sessionId, sessionName, deleteOld) {
     // check to make sure session name doesn't already exist
     const existingSession = await dbService.fetchSessionByName(sessionName);
-    // Fix: allow renaming when only capitalization is changed
-if (existingSession && existingSession.id === sessionId) {
-    return spacesService.updateSessionName(sessionId, sessionName) ?? false;
-}
 
-    // if session with same name already exist, then prompt to override the existing session
-    if (existingSession) {
+    // If a different session with same name already exists, then prompt to
+    // override the existing session.
+    // TESTME: Only delete if session ids differ.
+    if (existingSession && existingSession.id !== sessionId) {
         if (!deleteOld) {
             console.error(
                 `handleUpdateSessionName: Session with name "${sessionName}" already exists and deleteOld was not true.`
             );
             return false;
         }
-        
+
         // if we choose to override, then delete the existing session
         await handleDeleteSession(existingSession.id);
     }
-    
+
     return spacesService.updateSessionName(sessionId, sessionName) ?? false;
 }
 
@@ -1188,7 +1191,7 @@ async function handleMoveTabToSession(tabId, sessionId) {
     if (!session) {
         return false;
     }
-    
+
     // if session is currently open then move it directly
     if (session.windowId) {
         moveTabToWindow(tab, session.windowId);
@@ -1345,7 +1348,7 @@ async function getTargetDisplayWorkArea() {
         const activeDisplay = displays.find(display => {
             const d = display.workArea;
             return windowCenterX >= d.left && windowCenterX < (d.left + d.width) &&
-                   windowCenterY >= d.top && windowCenterY < (d.top + d.height);
+                windowCenterY >= d.top && windowCenterY < (d.top + d.height);
         });
         if (activeDisplay) {
             targetDisplay = activeDisplay;
@@ -1402,5 +1405,6 @@ export {
     getEffectiveTabUrl,
     getTargetDisplayWorkArea,
     handleLoadSession,
+    handleUpdateSessionName,
     requestAllSpaces,
 };

@@ -22,6 +22,7 @@
  * @typedef SessionPresence
  * @property {boolean} exists A session with this name exists in the database.
  * @property {boolean} isOpen The session is currently open in a window.
+ * @property {string|false} sessionName The name of the session, or false if not named.
  */
 
 /**

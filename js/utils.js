@@ -11,9 +11,9 @@
 /** @typedef {import('./common.js').SessionPresence} SessionPresence */
 
 /**
- * Checks if a session with the given name can be overwritten by checking
- * with the background script, alerting the user if the session is currently
- * open, and confirming if the session already exists but is not open.
+ * Checks if a session with the given name can be overwritten by checking with the
+ * background script. This function alerts the user if the session is currently open,
+ * and asks confirmation if the session already exists but is not open.
  * @param {string} sessionName 
  * @returns {Promise<boolean>} Returns true if the session can be safely
  *     overwritten. This happens if the session does not exist or if the
@@ -26,6 +26,7 @@ export async function checkSessionOverwrite(sessionName) {
         sessionName,
     });
 
+    // If there is no session with this name, it is safe to "overwrite" it.
     if (!sessionPresence.exists) {
         return true;
     }
@@ -49,7 +50,7 @@ export async function checkSessionOverwrite(sessionName) {
  */
 export function escapeHtml(text) {
     if (!text) return text;
-    
+
     return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')

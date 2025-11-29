@@ -55,7 +55,7 @@ export const setupDOMMocks = () => {
         querySelector: jest.fn(),
         querySelectorAll: jest.fn(),
     };
-    
+
     global.window = {
         location: {
             href: 'popup.html#',
@@ -65,6 +65,10 @@ export const setupDOMMocks = () => {
         close: jest.fn(),
         confirm: jest.fn(),
     };
+
+    // Make confirm and alert available globally (not just on window)
+    global.confirm = global.window.confirm;
+    global.alert = jest.fn();
 };
 
 /**

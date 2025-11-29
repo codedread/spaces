@@ -1,7 +1,7 @@
 {
     "name": "Spaces",
     "description": "Intuitive tab management",
-    "version": "1.1.7",
+    "version": "1.1.8.0",
     "permissions": [
         "contextMenus",
         "downloads",
@@ -30,7 +30,6 @@
     "incognito": "split",
     "manifest_version": 3,
     "minimum_chrome_version": "88",
-
     "commands": {
         "spaces-move": {
             "description": "Move active tab",

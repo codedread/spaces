@@ -25,6 +25,10 @@ let globalUrl;
 let globalWindowId;
 let globalSessionName;
 
+export function setGlobalCurrentSpace(space) {
+    globalCurrentSpace = space;
+}
+
 /** Initialize the popup window. */
 function initializePopup() {
     document.addEventListener('DOMContentLoaded', async () => {
@@ -77,8 +81,8 @@ function renderCommon() {
     document.getElementById(
         'activeSpaceTitle'
     ).value = globalCurrentSpace.name
-        ? globalCurrentSpace.name
-        : UNSAVED_SESSION;
+            ? globalCurrentSpace.name
+            : UNSAVED_SESSION;
 
     document.querySelector('body').onkeyup = e => {
         // listen for escape key
@@ -126,12 +130,12 @@ function handleCloseAction() {
 
 async function renderMainCard() {
     const hotkeys = await requestHotkeys();
-        document.querySelector(
-            '#switcherLink .hotkey'
-        ).innerHTML = hotkeys.switchCode ? hotkeys.switchCode : NO_HOTKEY;
-        document.querySelector(
-            '#moverLink .hotkey'
-        ).innerHTML = hotkeys.moveCode ? hotkeys.moveCode : NO_HOTKEY;
+    document.querySelector(
+        '#switcherLink .hotkey'
+    ).innerHTML = hotkeys.switchCode ? hotkeys.switchCode : NO_HOTKEY;
+    document.querySelector(
+        '#moverLink .hotkey'
+    ).innerHTML = hotkeys.moveCode ? hotkeys.moveCode : NO_HOTKEY;
 
     const hotkeyEls = document.querySelectorAll('.hotkey');
     for (let i = 0; i < hotkeyEls.length; i += 1) {
@@ -190,7 +194,8 @@ function handleNameEdit() {
     }
 }
 
-async function handleNameSave() {
+export async function handleNameSave() {
+    /** @type {HTMLInputElement} */
     const inputEl = document.getElementById('activeSpaceTitle');
     const newName = inputEl.value;
 
@@ -200,14 +205,19 @@ async function handleNameSave() {
         return;
     }
 
-    if (
-        newName === UNSAVED_SESSION ||
-        newName === globalCurrentSpace.name
-    ) {
+    // If the session is unnamed or the name has not changed, do nothing.
+    if (newName === UNSAVED_SESSION || newName === globalCurrentSpace.name) {
         return;
     }
 
-    const canOverwrite = await checkSessionOverwrite(newName);
+    // Spaces are looked up in the database by case-insensitive name. That means we do not allow
+    // two spaces to have case-insensitive identical names (e.g. "main" and "Main"). If the new
+    // name is a case-insensitive match of the previous name of the current session, we do not need
+    // to check for overwrite, we just let the capitalization change happen.
+    // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
+    //     the requestSessionPresence message should not be sent.
+    const caseInsensitiveMatch = globalCurrentSpace.name.toLowerCase() === newName.toLowerCase();
+    const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
     if (!canOverwrite) {
         inputEl.value = globalCurrentSpace.name || UNSAVED_SESSION;
         inputEl.blur();
@@ -246,7 +256,7 @@ async function renderSwitchCard() {
     document.getElementById(
         'popupContainer'
     ).innerHTML = document.getElementById('switcherTemplate').innerHTML;
-    
+
     const spaces = await chrome.runtime.sendMessage({ action: 'requestAllSpaces' });
     spacesRenderer.initialise(8, true);
     spacesRenderer.renderSpaces(spaces);
@@ -367,7 +377,7 @@ async function updateTabDetails() {
             action: 'requestTabDetail',
             tabId: globalTabId,
         });
-        
+
         if (tab) {
             nodes.activeTabTitle.innerHTML = escapeHtml(tab.title);
 
@@ -397,9 +407,9 @@ async function updateTabDetails() {
         const cleanUrl =
             globalUrl.indexOf('://') > 0
                 ? globalUrl.substr(
-                        globalUrl.indexOf('://') + 3,
-                        globalUrl.length
-                    )
+                    globalUrl.indexOf('://') + 3,
+                    globalUrl.length
+                )
                 : globalUrl;
         nodes.activeTabTitle.innerHTML = escapeHtml(cleanUrl);
         nodes.activeTabFavicon.setAttribute('src', '/img/new.png');
