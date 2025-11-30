@@ -85,7 +85,11 @@ function routeView(action) {
  */
 
 function renderCommon() {
-    document.getElementById('activeSpaceTitle').value = globalCurrentSpace.name ?? UNSAVED_SESSION;
+    document.getElementById(
+        'activeSpaceTitle'
+    ).value = globalCurrentSpace.name
+            ? globalCurrentSpace.name
+            : UNSAVED_SESSION;
 
     document.querySelector('body').onkeyup = e => {
         // listen for escape key
