@@ -3,6 +3,8 @@
 import { getHashVariable } from './common.js';
 import { spacesRenderer } from './spacesRenderer.js';
 import { checkSessionOverwrite, escapeHtml } from './utils.js';
+import * as common from './common.js';
+/** @typedef {common.Space} Space */
 
 const UNSAVED_SESSION = '(unnamed window)';
 const NO_HOTKEY = 'no hotkey set';
@@ -19,6 +21,7 @@ export async function handlePopupMenuClick(action) {
 }
 
 const nodes = {};
+/** @type {Space|false} */
 let globalCurrentSpace;
 let globalTabId;
 let globalUrl;
@@ -47,7 +50,11 @@ function initializePopup() {
         const action = getHashVariable('action', window.location.href);
 
         const requestSpacePromise = globalWindowId
-            ? chrome.runtime.sendMessage({ action: 'requestSpaceFromWindowId', windowId: globalWindowId })
+            ? chrome.runtime.sendMessage({
+                action: 'requestSpaceFromWindowId',
+                windowId: globalWindowId,
+                matchByTabs: true,
+            })
             : chrome.runtime.sendMessage({ action: 'requestCurrentSpace' });
 
         requestSpacePromise.then(space => {
@@ -78,11 +85,7 @@ function routeView(action) {
  */
 
 function renderCommon() {
-    document.getElementById(
-        'activeSpaceTitle'
-    ).value = globalCurrentSpace.name
-            ? globalCurrentSpace.name
-            : UNSAVED_SESSION;
+    document.getElementById('activeSpaceTitle').value = globalCurrentSpace.name ?? UNSAVED_SESSION;
 
     document.querySelector('body').onkeyup = e => {
         // listen for escape key
@@ -368,6 +371,7 @@ async function renderMoveCard() {
     }
 }
 
+// TODO: Is this used for anything anymore? When are globalTabId or globalUrl set?
 async function updateTabDetails() {
     let faviconSrc;
 

@@ -442,7 +442,8 @@ class SpacesService {
      * @returns {Promise<Session|null>} The session object if found, null otherwise
      */
     async _getSessionByWindowIdInternal(windowId) {
-        // First check in-memory sessions (includes temporary sessions)
+        // First check in-memory sessions (includes temporary sessions). During initialization,
+        // this will be the full set of sessions from the database.
         const memorySession = this.sessions.find(session => session.windowId === windowId);
         if (memorySession) {
             return memorySession;
@@ -1195,10 +1196,10 @@ function cleanUrl(url) {
  * filterInternalWindows({ tabs: [{ url: 'https://example.com' }], type: 'normal' }) // returns false
  */
 function filterInternalWindows(curWindow) {
-    // sanity check to make sure window isnt an internal spaces window
+    // Sanity check to make sure window isn't an internal spaces window.
     if (
         curWindow.tabs.length === 1 &&
-        curWindow.tabs[0].url.indexOf(chrome.runtime.id) >= 0
+        curWindow.tabs[0].url.includes(chrome.runtime.id)
     ) {
         return true;
     }

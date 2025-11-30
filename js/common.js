@@ -10,11 +10,25 @@
  */
 
 /**
+ * https://developer.chrome.com/docs/extensions/reference/api/tabs/#type-Tab
+ * @typedef Tab
+ * @property {string} favIconUrl The URL of the tab's favicon.
+ * @property {string} title The title of the tab.
+ * @property {string} url The URL of the tab.
+ */
+
+/**
+ * https://developer.chrome.com/docs/extensions/reference/api/windows/#type-Window
+ * @typedef Window
+ * @property {Array<Tab>} tabs The tabs in the window.
+ */
+
+/**
  * @typedef Space
  * @property {number|false} sessionId The unique identifier for the session, or false if not saved.
  * @property {number|false} windowId The ID of the window associated with the space, or false if not open.
  * @property {string|false} name The name of the space, or false if not named.
- * @property {Array<Object>} tabs Array of tab objects containing URL and other tab properties.
+ * @property {Array<Tab>} tabs Array of tab objects containing URL and other tab properties.
  * @property {Array<Object>|false} history Array of tab history objects, or false if no history.
  */
 

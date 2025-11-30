@@ -1,6 +1,8 @@
 /* global db */
 
 import { db, Server } from './db.js';
+import * as common from '../common.js';
+/** @typedef {common.Tab} Tab */
 
 /**
  * @typedef WindowBounds
@@ -11,11 +13,13 @@ import { db, Server } from './db.js';
  */
 
 /**
+ * The storage format for a space in the database.
  * @typedef Session
  * @property {number} id Auto-generated indexedDb object id
+ * @property {number|false} windowId The window id associated with the session, or false.
  * @property {number} sessionHash A hash formed from the combined urls in the session window
  * @property {string} name The saved name of the session
- * @property {Array} tabs An array of chrome tab objects (often taken from the chrome window obj)
+ * @property {Array<Tab>} tabs An array of chrome tab objects (often taken from the chrome window obj)
  * @property {Array} history An array of chrome tab objects that have been removed from the session
  * @property {Date} lastAccess Timestamp that gets updated with every window focus
  * @property {WindowBounds?} windowBounds Optional saved window position and size

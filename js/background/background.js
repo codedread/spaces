@@ -12,6 +12,7 @@ import { spacesService } from './spacesService.js';
 import * as common from '../common.js';
 /** @typedef {common.SessionPresence} SessionPresence */
 /** @typedef {common.Space} Space */
+/** @typedef {common.Window} Window */
 /** @typedef {import('./dbService.js').WindowBounds} WindowBounds */
 
 // eslint-disable-next-line no-unused-vars, no-var
@@ -276,7 +277,11 @@ async function processMessage(request, sender) {
         case 'requestSpaceFromWindowId':
             windowId = cleanParameter(request.windowId);
             if (windowId) {
-                return requestSpaceFromWindowId(windowId);
+                let matchByTabs = undefined;
+                if (request.matchByTabs) {
+                    matchByTabs = cleanParameter(request.matchByTabs);
+                }
+                return requestSpaceFromWindowId(windowId, matchByTabs);
             }
             return undefined;
 
@@ -786,9 +791,11 @@ async function requestCurrentSpace() {
 
 /**
  * @param {number} windowId
+ * @param {boolean|undefined} matchByTabs - Whether to match the space by tabs if matching by
+ * windowId fails. If undefined, the default is to match by windowId only.
  * @returns {Promise<Space|false>}
  */
-async function requestSpaceFromWindowId(windowId) {
+async function requestSpaceFromWindowId(windowId, matchByTabs) {
     // first check for an existing session matching this windowId
     const session = await dbService.fetchSessionByWindowId(windowId);
 
@@ -802,11 +809,37 @@ async function requestSpaceFromWindowId(windowId) {
             history: session.history,
         };
         return space;
-
-        // otherwise build a space object out of the actual window
     } else {
         try {
+            /** @type {Window} */
             const window = await chrome.windows.get(windowId, { populate: true });
+
+            if (matchByTabs) {
+                console.log(`matchByTabs=true`);
+                const allSpaces = await requestAllSpaces();
+                // If any space in the database has the exact same tabs in the exact same order as
+                // the currently-open window, then we assume the window got out of sync (due to a
+                // Chrome restart or other factors). Update the database with the new window id and
+                // return it.
+                for (const space of allSpaces) {
+                    if (
+                        space.tabs.length === window.tabs.length &&
+                        space.tabs.every((tab, index) => tab.url === window.tabs[index].url)
+                    ) {
+                        // Update the database object.
+                        const dbSession = await dbService.fetchSessionById(space.sessionId);
+                        dbSession.windowId = windowId;
+                        await dbService.updateSession(dbSession);
+
+                        // Update the space object and return it.
+                        space.windowId = windowId;
+                        console.log(`matchByTabs: Found a session and updated it.`);
+                        return space;
+                    }
+                }
+            }
+
+            // Otherwise build a space object out of the actual window.
             /** @type {Space} */
             const space = {
                 sessionId: false,
@@ -1273,9 +1306,9 @@ function calculateSessionBounds(displayBounds, sessionBounds) {
 }
 
 /**
- * Ensures the parameter is a number.
+ * Ensures the parameter is a number or boolean.
  * @param {string|number} param - The parameter to clean.
- * @returns {number} - The cleaned parameter.
+ * @returns {number|boolean} - The cleaned parameter.
  */
 function cleanParameter(param) {
     if (typeof param === 'number') {
