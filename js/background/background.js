@@ -1401,12 +1401,8 @@ async function requestAllSpaces() {
     const allSessions = await spacesService.getAllSessions();
     /** @type {Space[]} */
     const allSpaces = allSessions
-        .map(session => {
-            return { sessionId: session.id, ...session };
-        })
-        .filter(session => {
-            return session && session.tabs && session.tabs.length > 0;
-        });
+        .map(session => { return { sessionId: session.id, ...session } })
+        .filter(session => session?.tabs?.length > 0);
 
     // sort results
     allSpaces.sort((a, b) => {

@@ -85,7 +85,11 @@ function routeView(action) {
  */
 
 function renderCommon() {
-    document.getElementById('activeSpaceTitle').value = globalCurrentSpace.name ?? UNSAVED_SESSION;
+    document.getElementById(
+        'activeSpaceTitle'
+    ).value = globalCurrentSpace.name
+            ? globalCurrentSpace.name
+            : UNSAVED_SESSION;
 
     document.querySelector('body').onkeyup = e => {
         // listen for escape key
@@ -219,7 +223,8 @@ export async function handleNameSave() {
     // to check for overwrite, we just let the capitalization change happen.
     // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
     //     the requestSessionPresence message should not be sent.
-    const caseInsensitiveMatch = globalCurrentSpace.name.toLowerCase() === newName.toLowerCase();
+    const caseInsensitiveMatch = globalCurrentSpace?.name
+        && globalCurrentSpace.name.toLowerCase() === newName.toLowerCase();
     const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
     if (!canOverwrite) {
         inputEl.value = globalCurrentSpace.name || UNSAVED_SESSION;

@@ -332,7 +332,7 @@ export async function handleNameSave() {
         // name is a case-insensitive match of the previous name, we do not need to check overwrite.
         // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
         //     the requestSessionPresence message should not be sent.
-        const caseInsensitiveMatch = name.toLowerCase() === newName.toLowerCase();
+        const caseInsensitiveMatch = name && name.toLowerCase() === newName.toLowerCase();
         const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
         if (!canOverwrite) {
             updateNameForm(globalSelectedSpace);
