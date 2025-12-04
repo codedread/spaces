@@ -1435,4 +1435,5 @@ export {
     handleLoadSession,
     handleUpdateSessionName,
     requestAllSpaces,
+    requestSpaceFromWindowId,
 };
