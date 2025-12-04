@@ -2,13 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.8] - 2025-11-30
+## [1.1.8] - 2025-??-??
 
 ### Changes
 
 - Fixed [issue #31](https://github.com/codedread/spaces/issues/31): Allow changing the capitalization of space names.
+- Fixed [issue #25](https://github.com/codedread/spaces/issues/25): Restore window ids from lost sessions in the db.
 - Increased unit test coverage from 16.17% to 22.69%.
-- 
+
 ## [1.1.7] - 2025-10-01
 
 ### Changes

@@ -330,8 +330,6 @@ export async function handleNameSave() {
         // Spaces are looked up in the database by case-insensitive name. That means we do not allow
         // two spaces to have case-insensitive identical names (e.g. "main" and "Main"). If the new
         // name is a case-insensitive match of the previous name, we do not need to check overwrite.
-        // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
-        //     the requestSessionPresence message should not be sent.
         const caseInsensitiveMatch = name && name.toLowerCase() === newName.toLowerCase();
         const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
         if (!canOverwrite) {

@@ -1065,7 +1065,6 @@ async function handleUpdateSessionName(sessionId, sessionName, deleteOld) {
 
     // If a different session with same name already exists, then prompt to
     // override the existing session.
-    // TESTME: Only delete if session ids differ.
     if (existingSession && existingSession.id !== sessionId) {
         if (!deleteOld) {
             console.error(

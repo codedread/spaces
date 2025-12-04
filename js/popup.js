@@ -221,8 +221,6 @@ export async function handleNameSave() {
     // two spaces to have case-insensitive identical names (e.g. "main" and "Main"). If the new
     // name is a case-insensitive match of the previous name of the current session, we do not need
     // to check for overwrite, we just let the capitalization change happen.
-    // TESTME: Save should occur when the name is a case-insensitive match of the previous name and
-    //     the requestSessionPresence message should not be sent.
     const caseInsensitiveMatch = globalCurrentSpace?.name
         && globalCurrentSpace.name.toLowerCase() === newName.toLowerCase();
     const canOverwrite = caseInsensitiveMatch || await checkSessionOverwrite(newName);
