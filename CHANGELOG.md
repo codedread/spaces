@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.10] - 2026-08-25
+
+### Changes
+
+- Added a "Remove this tab" hover button to each active tab in the Spaces window, letting you remove a tab from a space (and close its browser tab, if open) without leaving the Spaces window.
+
 ## [1.1.9] - 2025-12-10
 
 ### Changes

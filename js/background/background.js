@@ -384,6 +384,11 @@ async function processMessage(request, sender) {
                 return false;
             }
 
+        case 'closeTab':
+            sessionId = cleanParameter(request.sessionId);
+            windowId = cleanParameter(request.windowId);
+            return handleCloseTabMessage(sessionId, windowId, request.tabId, request.tabIndex);
+
         case 'updateSessionName':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.sessionName) {
@@ -1099,6 +1104,45 @@ async function handleDeleteSession(sessionId) {
 }
 
 /**
+ * Removes a single tab from a space, requested from the Spaces window's per-tab
+ * "Remove this tab" button.
+ * @param {number|false} sessionId
+ * @param {number|false} windowId
+ * @param {number} tabId
+ * @param {number} tabIndex
+ * @returns {Promise<boolean>}
+ */
+async function handleCloseTabMessage(sessionId, windowId, tabId, tabIndex) {
+    // windowId set => space is open right now: close the real tab (its saved
+    // session, if any, is re-synced afterward by the existing debounced
+    // chrome.tabs.onRemoved handling in spacesService.js — no DB call needed here).
+    // windowId unset => space is closed/saved only: edit the saved tab list instead.
+    if (windowId) {
+        try {
+            await chrome.tabs.remove(tabId);
+            return true;
+        } catch (error) {
+            console.error('Error closing tab:', error);
+            return false;
+        }
+    } else if (sessionId && typeof tabIndex === 'number') {
+        const session = await dbService.fetchSessionById(sessionId);
+        if (!session || !Array.isArray(session.tabs) || !session.tabs[tabIndex]) {
+            console.error(`handleCloseTabMessage: No tab found at index ${tabIndex} for session ${sessionId}`);
+            return false;
+        }
+        const filteredTabs = session.tabs.filter((_, i) => i !== tabIndex);
+        const updated = await spacesService.updateSessionTabs(sessionId, filteredTabs);
+        if (updated) updateSpacesWindow('closeTab');
+        return !!updated;
+    }
+
+    // Neither a live window nor a saved session was identified — shouldn't
+    // happen given how the UI constructs this message, but fail safe.
+    return false;
+}
+
+/**
  * @param {string} url - The URL to add to the new session
  * @param {string} sessionName - The name for the new session
  * @returns {Promise<Session|null>} Promise that resolves to:
@@ -1432,6 +1476,7 @@ export {
     focusOrLoadTabInWindow,
     getEffectiveTabUrl,
     getTargetDisplayWorkArea,
+    handleCloseTabMessage,
     handleLoadSession,
     handleUpdateSessionName,
     requestAllSpaces,

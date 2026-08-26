@@ -260,6 +260,34 @@ a.active {
 .tabsList .duplicate {
     color: #e58080;
 }
+.tabsList li {
+    position: relative;
+}
+.tabsList .tabActions {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+}
+.tabsList li:hover .tabActions {
+    display: flex;
+}
+.tabsList .closeTabBtn {
+    background: transparent;
+    border: none;
+    padding: 0 6px;
+    font-size: 16px;
+    color: #999;
+    cursor: pointer;
+}
+.tabsList .closeTabBtn:hover {
+    color: #e58080;
+}
 
 #banner {
     display: none;

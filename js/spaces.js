@@ -145,7 +145,7 @@ function renderTabs(space) {
         nodes.spaceDetailContainer.style.display = 'block';
 
         space.tabs.forEach(tab => {
-            nodes.activeTabs.appendChild(renderTabListEl(tab, space));
+            nodes.activeTabs.appendChild(renderTabListEl(tab, space, true));
         });
         if (space.history) {
             space.history.forEach(tab => {
@@ -159,7 +159,7 @@ function renderTabs(space) {
     }
 }
 
-function renderTabListEl(tab, space) {
+function renderTabListEl(tab, space, closable) {
     let faviconSrc;
 
     const listEl = document.createElement('li');
@@ -192,6 +192,23 @@ function renderTabListEl(tab, space) {
 
     if (tab.duplicate) {
         linkEl.className = 'duplicate';
+    }
+
+    if (closable) {
+        // Generic hover-reveal container for per-row actions on this tab.
+        const tabActions = document.createElement('div');
+        tabActions.className = 'tabActions';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'button fa fa-times-circle closeTabBtn';
+        closeBtn.title = 'Remove this tab';
+        closeBtn.addEventListener('click', e => {
+            e.preventDefault();
+            handleCloseTab(tab, space);
+        });
+
+        tabActions.appendChild(closeBtn);
+        listEl.appendChild(tabActions);
     }
 
     listEl.appendChild(faviconEl);
@@ -409,6 +426,41 @@ async function handleClose(
     await updateSpacesListFn();
     globalSelectedSpace = null;
     renderSpaceDetailFn(false, false);
+}
+
+/**
+ * Removes a single tab from a space, closing the real browser tab if the
+ * space's window is currently open.
+ * The renderTabsFn argument is only for testing purposes to allow dependency injection.
+ * @param {Tab} tab The tab to remove
+ * @param {Space} space The space the tab belongs to
+ * @param {Function} renderTabsFn Function to re-render the tab lists after removal
+ * @returns {Promise<void>}
+ */
+async function handleCloseTab(tab, space, renderTabsFn = renderTabs) {
+    if (!space) return;
+
+    const tabIndex = space.tabs.indexOf(tab);
+    if (tabIndex === -1) return;
+
+    const success = await chrome.runtime.sendMessage({
+        action: 'closeTab',
+        sessionId: space.sessionId || false,
+        windowId: space.windowId || false,
+        tabId: tab.id,
+        tabIndex,
+    });
+
+    if (!success) {
+        console.warn('Failed to remove tab - it may have already been removed');
+        return;
+    }
+
+    // Optimistic local update so the row disappears immediately, rather than
+    // waiting on the background's debounced resync (open+saved case) or a
+    // full refetch.
+    space.tabs = space.tabs.filter(t => t !== tab);
+    renderTabsFn(space);
 }
 
 // import accepts either a newline separated list of urls or a json backup object
@@ -840,6 +892,7 @@ export {
     addDuplicateMetadata,
     getSpacesForBackup,
     handleClose,
+    handleCloseTab,
     normaliseTabUrl,
 };
 
