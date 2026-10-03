@@ -215,9 +215,10 @@ describe('_updateSessionSync', () => {
     });
 
     test('handles complex object properties correctly', async () => {
+        // A closed session (no windowId) takes all of its fields from the stored record.
         const session = {
             id: 123,
-            windowId: 100,
+            windowId: false,
             name: 'Test Session',
             tabs: [
                 { url: 'https://example.com', title: 'Example', pinned: false },
@@ -244,6 +245,7 @@ describe('_updateSessionSync', () => {
             sessionHash: 98765,
             lastAccess: new Date()
         };
+        updatedSession.windowId = false;
 
         spacesService.sessions.push(session);
         
@@ -258,5 +260,38 @@ describe('_updateSessionSync', () => {
         expect(session.history).toHaveLength(2); // History updated
         expect(session.sessionHash).toBe(98765); // Computed properties synced
         expect(session.lastAccess).toBeDefined(); // Timestamps synced
+    });
+
+    test('keeps live file: URLs in memory while the session window is open', async () => {
+        const liveTabs = [{ url: 'file:///home/me/doc.pdf', title: 'doc.pdf' }];
+        const liveHistory = [{ url: 'file:///home/me/old.pdf', title: 'old.pdf' }];
+        const session = { id: 123, windowId: 100, name: 'Open', tabs: liveTabs, history: liveHistory, sessionHash: 42 };
+        spacesService.sessions.push(session);
+
+        mockDbUpdate(async (s) => ({
+            ...s,
+            tabs: [{ url: 'data:text/html,placeholder', title: 'doc.pdf' }],
+            history: [{ url: 'data:text/html,placeholder2', title: 'old.pdf' }],
+            lastAccess: new Date(),
+        }));
+
+        const result = await spacesService._updateSessionSync(session);
+
+        expect(result).toBe(session);
+        expect(session.tabs).toBe(liveTabs);
+        expect(session.history).toBe(liveHistory);
+        expect(session.lastAccess).toBeDefined(); // other fields still synced
+        expect(session.sessionHash).toBe(42);
+    });
+
+    test('takes stored placeholder URLs into memory once the window is closed', async () => {
+        const session = { id: 123, windowId: false, name: 'Closed', tabs: [{ url: 'file:///home/me/doc.pdf' }], history: [] };
+        spacesService.sessions.push(session);
+
+        mockDbUpdate(async (s) => ({ ...s, tabs: [{ url: 'data:text/html,placeholder' }] }));
+
+        await spacesService._updateSessionSync(session);
+
+        expect(session.tabs).toEqual([{ url: 'data:text/html,placeholder' }]);
     });
 });

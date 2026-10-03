@@ -40,6 +40,91 @@
  */
 
 /**
+ * The result of asking the background to open a space (or a tab within a space).
+ * @typedef LoadSpaceResult
+ * @property {boolean} success True if the space was opened or focused.
+ * @property {string} [error] Why the space could not be opened, if success is false.
+ */
+
+/**
+ * Returns true if the URL points at a local file (file: scheme). Chrome does not let
+ * Spaces open these, so they cannot be restored when a space is reopened.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isFileUrl(url) {
+    return typeof url === 'string' && url.toLowerCase().startsWith('file:');
+}
+
+/**
+ * Escapes HTML characters. A copy of utils.js's escapeHtml, which is client-side only.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeHtmlText(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Turns a file: URL into a data: URL for a small HTML page explaining that Spaces cannot
+ * open it. Any other URL is returned unchanged, so this is safe to call more than once.
+ * @param {string} url
+ * @returns {string}
+ *
+ * @example
+ * toFileUrlPlaceholder('https://example.com') // returns 'https://example.com'
+ * toFileUrlPlaceholder('file:///home/me/doc.pdf') // returns 'data:text/html;charset=utf-8,...'
+ */
+export function toFileUrlPlaceholder(url) {
+    if (!isFileUrl(url)) {
+        return url;
+    }
+
+    let fileName = url;
+    try {
+        const path = url.split(/[?#]/)[0];
+        fileName = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || url;
+    } catch (e) {
+        // Malformed escape sequence; fall back to the full URL.
+    }
+
+    const safeUrl = escapeHtmlText(url);
+    const html = '<!doctype html><meta charset="utf-8">'
+        + `<title>${escapeHtmlText(fileName)}</title>`
+        + '<body style="font-family:sans-serif;margin:2em;line-height:1.5">'
+        + `<h1 style="font-size:1.25em">Spaces Cannot Open Local Files</h1>`
+        + '<p>The Spaces extension cannot open local file '
+        + `<code style="user-select:all;word-break:break-all">${safeUrl}</code></p>`;
+    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+/**
+ * Returns a copy of the tabs with every file: URL replaced by a placeholder page
+ * (see toFileUrlPlaceholder). The input array and its tabs are not modified.
+ * @param {Array<Tab>|false|undefined} tabs
+ * @returns {Array<Tab>|false|undefined} The new tabs, or the input unchanged if it is
+ *     not an array or has no file: URLs.
+ */
+export function replaceFileUrls(tabs) {
+    if (!Array.isArray(tabs) || !tabs.some(tab => tab && isFileUrl(tab.url))) {
+        return tabs;
+    }
+
+    return tabs.map(tab => {
+        if (!tab || !isFileUrl(tab.url)) {
+            return tab;
+        }
+        const { favIconUrl, ...rest } = tab;
+        return { ...rest, url: toFileUrlPlaceholder(tab.url) };
+    });
+}
+
+/**
  * Extracts a parameter value from a URL's hash fragment.
  * @param {string} key - The parameter name to extract
  * @param {string} urlStr - The URL string to parse

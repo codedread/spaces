@@ -10,6 +10,7 @@
 import { dbService } from './dbService.js';
 import { spacesService } from './spacesService.js';
 import * as common from '../common.js';
+/** @typedef {common.LoadSpaceResult} LoadSpaceResult */
 /** @typedef {common.SessionPresence} SessionPresence */
 /** @typedef {common.Space} Space */
 /** @typedef {common.Window} Window */
@@ -57,8 +58,27 @@ async function rediscoverWindowByUrl(storageKey, htmlFilename) {
     return false;
 }
 
+/**
+ * If this is an unpacked (development) build, swaps the toolbar icon for one with a red dot
+ * so it can be told apart from the Chrome Web Store build when both are installed. The Web
+ * Store adds an update_url to the manifest it serves; an unpacked build has none.
+ */
+async function markUnpackedBuild() {
+    try {
+        if ('update_url' in chrome.runtime.getManifest()) {
+            return;
+        }
+        await chrome.action.setIcon({ path: '/img/icon-dev.png' });
+        await chrome.action.setTitle({ title: 'Spaces (unpacked)' });
+    } catch (error) {
+        console.error('Error setting the unpacked-build icon:', error);
+    }
+}
+
 export function initializeServiceWorker() {
     console.log(`Initializing service worker...`);
+
+    markUnpackedBuild();
 
     chrome.runtime.onInstalled.addListener(details => {
         console.log(`Extension installed: ${JSON.stringify(details)}`);
@@ -295,8 +315,7 @@ async function processMessage(request, sender) {
         case 'loadSession':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId) {
-                await handleLoadSession(sessionId);
-                return true;
+                return handleLoadSession(sessionId);
             }
             // close the requesting tab (should be spaces.html)
             // if (!debug) closeChromeTab(sender.tab.id);
@@ -315,8 +334,7 @@ async function processMessage(request, sender) {
         case 'loadTabInSession':
             sessionId = cleanParameter(request.sessionId);
             if (sessionId && request.tabUrl) {
-                await handleLoadSession(sessionId, request.tabUrl);
-                return true;
+                return handleLoadSession(sessionId, request.tabUrl);
             }
             // close the requesting tab (should be spaces.html)
             // if (!debug) closeChromeTab(sender.tab.id);
@@ -468,9 +486,9 @@ async function processMessage(request, sender) {
             if (windowId) {
                 await handleLoadWindow(windowId);
             } else if (sessionId) {
-                await handleLoadSession(sessionId);
+                return handleLoadSession(sessionId);
             }
-            return true;
+            return { success: true };
 
         case 'addLinkToNewSession':
             tabId = cleanParameter(request.tabId);
@@ -884,65 +902,79 @@ async function requestSpaceFromSessionId(sessionId) {
     };
 }
 
+/**
+ * Opens a saved space in a new window, or focuses its window if it is already open.
+ *
+ * Spaces cannot open file: URLs, so any saved before issue #34 was fixed are replaced with
+ * placeholder pages. Once the window is open, the normal session save writes the
+ * placeholders back to the database.
+ *
+ * @param {number} sessionId - The ID of the session to open
+ * @param {string} [tabUrl] - If given, the tab with this URL is focused (or loaded)
+ * @returns {Promise<LoadSpaceResult>}
+ */
 async function handleLoadSession(sessionId, tabUrl) {
     const session = await dbService.fetchSessionById(sessionId);
 
     // if space is already open, then give it focus
     if (session.windowId) {
         await handleLoadWindow(session.windowId, tabUrl);
+        return { success: true };
+    }
 
-        // else load space in new window
-    } else {
-        const urls = session.tabs.map(curTab => {
-            return curTab.url;
-        });
-
-        // Display new session with calculated bounds
-        const workArea = await getTargetDisplayWorkArea();
-        const bounds = calculateSessionBounds(workArea, session.windowBounds);
-        let windowOptions = {
-            url: urls,
-            height: bounds.height,
-            width: bounds.width,
-            top: bounds.top,
-            left: bounds.left
-        };
-        const newWindow = await chrome.windows.create(windowOptions);
-
-        // force match this new window to the session
-        await spacesService.matchSessionToWindow(session, newWindow);
-
-        // after window has loaded try to pin any previously pinned tabs
-        for (const curSessionTab of session.tabs) {
-            if (curSessionTab.pinned) {
-                let pinnedTabId = false;
-                newWindow.tabs.some(curNewTab => {
-                    if (getEffectiveTabUrl(curNewTab) === curSessionTab.url) {
-                        pinnedTabId = curNewTab.id;
-                        return true;
-                    }
-                    return false;
-                });
-                if (pinnedTabId) {
-                    await chrome.tabs.update(pinnedTabId, {
-                        pinned: true,
-                    });
-                }
-            }
-        }
-
-        // if tabUrl is defined, then focus this tab
-        if (tabUrl) {
-            await focusOrLoadTabInWindow(newWindow, tabUrl);
-        }
-
-        /* session.tabs.forEach(function (curTab) {
-        chrome.tabs.create({windowId: newWindow.id, url: curTab.url, pinned: curTab.pinned, active: false});
+    // else load space in new window
+    const tabs = common.replaceFileUrls(session.tabs);
+    const urls = tabs.map(curTab => {
+        return curTab.url;
     });
 
-    const tabs = await chrome.tabs.query({windowId: newWindow.id, index: 0});
-    chrome.tabs.remove(tabs[0].id); */
+    // Display new session with calculated bounds
+    const workArea = await getTargetDisplayWorkArea();
+    const bounds = calculateSessionBounds(workArea, session.windowBounds);
+    let windowOptions = {
+        url: urls,
+        height: bounds.height,
+        width: bounds.width,
+        top: bounds.top,
+        left: bounds.left
+    };
+
+    let newWindow;
+    try {
+        newWindow = await chrome.windows.create(windowOptions);
+    } catch (error) {
+        console.error('Error opening space:', error);
+        return { success: false, error: error.message };
     }
+
+    // force match this new window to the session
+    await spacesService.matchSessionToWindow(session, newWindow);
+
+    // after window has loaded try to pin any previously pinned tabs
+    for (const curSessionTab of tabs) {
+        if (curSessionTab.pinned) {
+            let pinnedTabId = false;
+            newWindow.tabs.some(curNewTab => {
+                if (getEffectiveTabUrl(curNewTab) === curSessionTab.url) {
+                    pinnedTabId = curNewTab.id;
+                    return true;
+                }
+                return false;
+            });
+            if (pinnedTabId) {
+                await chrome.tabs.update(pinnedTabId, {
+                    pinned: true,
+                });
+            }
+        }
+    }
+
+    // if tabUrl is defined, then focus this tab
+    if (tabUrl) {
+        await focusOrLoadTabInWindow(newWindow, common.toFileUrlPlaceholder(tabUrl));
+    }
+
+    return { success: true };
 }
 
 async function handleLoadWindow(windowId, tabUrl) {
@@ -1387,7 +1419,8 @@ async function focusOrLoadTabInWindow(window, tabUrl) {
     }
 
     if (!match) {
-        await chrome.tabs.create({ url: tabUrl, active: true });
+        // Spaces cannot open file: URLs, so show the placeholder page instead.
+        await chrome.tabs.create({ url: common.toFileUrlPlaceholder(tabUrl), active: true });
     }
 }
 

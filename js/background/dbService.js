@@ -26,6 +26,22 @@ import * as common from '../common.js';
  */
 
 /**
+ * Returns a copy of the session that is safe to store: file: URLs in its tabs and history
+ * are replaced with placeholder pages, because Spaces cannot reopen local files (issue #34).
+ * The sessionHash is left alone; it was computed from the live tabs, and must keep matching
+ * them when windows are restored after a Chrome restart.
+ * @param {Session} session
+ * @returns {Session}
+ */
+function toStorageRecord(session) {
+    return {
+        ...session,
+        tabs: common.replaceFileUrls(session.tabs),
+        history: common.replaceFileUrls(session.history),
+    };
+}
+
+/**
  * Returns database schema definition.
  * @returns {Object} Database schema configuration object
  */
@@ -192,7 +208,7 @@ class DbService {
 
         try {
             const s = await this._getDb();
-            const result = await s.add(DB_SESSIONS, _session);
+            const result = await s.add(DB_SESSIONS, toStorageRecord(_session));
             return result.length > 0 ? result[0] : null;
         } catch (error) {
             console.error('Error creating session:', error);
@@ -213,7 +229,7 @@ class DbService {
 
         try {
             const s = await this._getDb();
-            const result = await s.update(DB_SESSIONS, session);
+            const result = await s.update(DB_SESSIONS, toStorageRecord(session));
             return result.length > 0 ? result[0] : null;
         } catch (error) {
             console.error('Error updating session:', error);
@@ -245,3 +261,6 @@ export const dbService = new DbService();
 
 // Export schema function and constants for debugging purposes
 export { getSchema, DB_VERSION, DB_SERVER, DB_SESSIONS };
+
+// Export helper functions for testing
+export { toStorageRecord };

@@ -34,7 +34,8 @@ zip -r spaces.zip \
     spaces/LICENSE \
     spaces/manifest.json \
     spaces/README.md \
-    spaces/*.html
+    spaces/*.html \
+    -x 'spaces/img/icon-dev.png'
 
 echo "Package created at spaces.zip"
 

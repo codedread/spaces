@@ -1051,7 +1051,7 @@ class SpacesService {
                 if (index !== -1) {
                     // Update the existing object in place to preserve references
                     // This is critical for UI components that hold references to session objects
-                    Object.assign(this.sessions[index], savedSession);
+                    syncFromStoredSession(this.sessions[index], savedSession);
                     return this.sessions[index];
                 } else {
                     console.warn('Session not found in memory cache during create sync');
@@ -1080,7 +1080,7 @@ class SpacesService {
                 if (index !== -1) {
                     // Update the existing object in place to preserve references
                     // This is critical for UI components that hold references to session objects
-                    Object.assign(this.sessions[index], updatedSession);
+                    syncFromStoredSession(this.sessions[index], updatedSession);
                     return this.sessions[index];
                 } else {
                     console.warn('Session not found in memory cache during update sync');
@@ -1124,6 +1124,23 @@ class SpacesService {
 }
 
 // Module-level helper functions.
+
+/**
+ * Copies a just-saved record back onto the in-memory session. The saved record has file:
+ * URLs replaced with placeholder pages (see dbService). While the window is open, memory
+ * keeps the live tabs and history so they still match the real tabs.
+ *
+ * @param {Session} memorySession - The session object in this.sessions to update in place
+ * @param {Session} storedSession - The record returned by the database
+ */
+function syncFromStoredSession(memorySession, storedSession) {
+    const { tabs, history, ...rest } = storedSession;
+    Object.assign(memorySession, rest);
+    if (!memorySession.windowId) {
+        memorySession.tabs = tabs;
+        memorySession.history = history;
+    }
+}
 
 /**
  * Cleans and normalizes a URL by removing query parameters, fragments, and filtering out

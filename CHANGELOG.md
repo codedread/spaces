@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.11] - TBD
+
+### Changes
+
+- Fixed [issue #34](https://github.com/codedread/spaces/issues/34): Spaces with file: tabs can be reopened again as placeholder pages.
+- Added an extension icon for when Spaces is in development (unpacked) mode.
+- Increased unit test coverage from 25.58% to 28.88%.
+
 ## [1.1.10] - 2026-08-25
 
 ### Changes

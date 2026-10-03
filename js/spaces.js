@@ -4,7 +4,7 @@
  * @typedef {import('./common.js').Space} Space
  */
 
-import { getHashVariable } from './common.js';
+import { getHashVariable, isFileUrl } from './common.js';
 import { checkSessionOverwrite, escapeHtml } from './utils.js';
 
 const UNSAVED_SESSION_NAME = 'Unnamed window';
@@ -190,7 +190,11 @@ function renderTabListEl(tab, space, closable) {
         handleLoadTab(space.sessionId, space.windowId, tab.url);
     });
 
-    if (tab.duplicate) {
+    if (isFileUrl(tab.url)) {
+        // Spaces cannot reopen local files, so make these easy to find and remove.
+        linkEl.className = 'fileUrl';
+        linkEl.title = "Spaces can't reopen local files. Remove this tab.";
+    } else if (tab.duplicate) {
         linkEl.className = 'duplicate';
     }
 
@@ -274,8 +278,9 @@ function toggleModal(visible) {
 
 async function handleLoadSpace(sessionId, windowId) {
     if (sessionId) {
-        await performLoadSession(sessionId);
+        const result = await performLoadSession(sessionId);
         reroute(sessionId, false, false);
+        alertLoadSpaceResult(result);
     } else if (windowId) {
         await performLoadWindow(windowId);
         reroute(false, windowId, false);
@@ -284,9 +289,21 @@ async function handleLoadSpace(sessionId, windowId) {
 
 async function handleLoadTab(sessionId, windowId, tabUrl) {
     if (sessionId) {
-        await performLoadTabInSession(sessionId, tabUrl);
+        const result = await performLoadTabInSession(sessionId, tabUrl);
+        alertLoadSpaceResult(result);
     } else if (windowId) {
         await performLoadTabInWindow(windowId, tabUrl);
+    }
+}
+
+/**
+ * Tells the user why a space could not be opened, if it could not.
+ * @param {import('./common.js').LoadSpaceResult} result
+ */
+function alertLoadSpaceResult(result) {
+    if (result && result.success === false) {
+        // eslint-disable-next-line no-alert
+        window.alert(`This space could not be opened: ${result.error}`);
     }
 }
 
@@ -550,7 +567,7 @@ async function fetchSpaceDetail(sessionId, windowId) {
     });
 }
 
-/** @returns {Promise<void>} */
+/** @returns {Promise<import('./common.js').LoadSpaceResult>} */
 async function performLoadSession(sessionId) {
     return chrome.runtime.sendMessage({
         action: 'loadSession',
@@ -566,7 +583,7 @@ async function performLoadWindow(windowId) {
     });
 }
 
-/** @returns {Promise<void>} */
+/** @returns {Promise<import('./common.js').LoadSpaceResult>} */
 async function performLoadTabInSession(sessionId, tabUrl) {
     return chrome.runtime.sendMessage({
         action: 'loadTabInSession',
@@ -893,7 +910,9 @@ export {
     getSpacesForBackup,
     handleClose,
     handleCloseTab,
+    handleLoadTab,
     normaliseTabUrl,
+    renderTabListEl,
 };
 
 // Export globalSelectedSpace for testing (mutable reference)

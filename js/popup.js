@@ -315,12 +315,23 @@ function getSelectedSpace() {
     return document.querySelector('.space.selected');
 }
 
-async function handleSwitchAction(selectedSpaceEl) {
-    await chrome.runtime.sendMessage({
+export async function handleSwitchAction(selectedSpaceEl) {
+    const result = await chrome.runtime.sendMessage({
         action: 'switchToSpace',
         sessionId: selectedSpaceEl.getAttribute('data-sessionId'),
         windowId: selectedSpaceEl.getAttribute('data-windowId'),
     });
+
+    // If the space could not be opened, say why and stay open.
+    if (result && result.success === false) {
+        const errorEl = document.getElementById('switchError');
+        if (errorEl) {
+            errorEl.textContent = `This space could not be opened: ${result.error}`;
+            errorEl.hidden = false;
+            return;
+        }
+    }
+
     // Wait for the response from the background message handler before
     // closing the window.
     window.close();

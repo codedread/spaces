@@ -1,6 +1,7 @@
 import { handleLoadSession } from '../js/background/background.js';
 import { spacesService } from '../js/background/spacesService.js';
 import { dbService } from '../js/background/dbService.js';
+import { toFileUrlPlaceholder } from '../js/common.js';
 import { jest, setupChromeMocks } from './helpers.js';
 
 describe('handleLoadSession', () => {
@@ -276,4 +277,63 @@ describe('handleLoadSession', () => {
           });
       });
   });  // close bounds restoration describe
+
+  describe('result and file: URLs (issue #34)', () => {
+      const FILE_URL = 'file:///home/me/doc.pdf';
+      const PLACEHOLDER = toFileUrlPlaceholder(FILE_URL);
+
+      test('returns success for an ordinary space', async () => {
+          const result = await handleLoadSession(mockSession.id);
+          expect(result).toEqual({ success: true });
+      });
+
+      test('returns success when focusing an already-open space', async () => {
+          mockSession.windowId = 456;
+          const result = await handleLoadSession(mockSession.id);
+          expect(result).toEqual({ success: true });
+      });
+
+      test('opens placeholder pages instead of file: URLs', async () => {
+          mockSession.tabs = [
+              { url: 'https://example.com', pinned: false },
+              { url: FILE_URL, pinned: false },
+          ];
+
+          const result = await handleLoadSession(mockSession.id);
+
+          expect(global.chrome.windows.create.mock.calls[0][0].url)
+              .toEqual(['https://example.com', PLACEHOLDER]);
+          expect(result).toEqual({ success: true });
+      });
+
+      test('still pins a pinned tab whose file: URL was replaced', async () => {
+          mockSession.tabs = [{ url: FILE_URL, pinned: true }];
+          mockWindow.tabs = [{ id: 9, url: PLACEHOLDER }];
+
+          await handleLoadSession(mockSession.id);
+
+          expect(global.chrome.tabs.update).toHaveBeenCalledWith(9, { pinned: true });
+      });
+
+      test('maps a file: tabUrl to its placeholder', async () => {
+          mockSession.tabs = [{ url: FILE_URL, pinned: false }];
+          mockWindow.tabs = [{ id: 9, url: PLACEHOLDER }];
+
+          await handleLoadSession(mockSession.id, FILE_URL);
+
+          expect(global.chrome.tabs.update).toHaveBeenCalledWith(9, { active: true });
+          expect(global.chrome.tabs.create).not.toHaveBeenCalled();
+      });
+
+      test('returns an error instead of throwing when the window cannot be created', async () => {
+          global.chrome.windows.create.mockRejectedValue(new Error('Cannot navigate'));
+          const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+          const result = await handleLoadSession(mockSession.id);
+
+          expect(result).toEqual({ success: false, error: 'Cannot navigate' });
+          expect(spacesService.matchSessionToWindow).not.toHaveBeenCalled();
+          errorSpy.mockRestore();
+      });
+  });
 });  // close handleLoadSession describe

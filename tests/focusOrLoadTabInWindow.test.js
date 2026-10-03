@@ -67,4 +67,22 @@ describe('focusOrLoadTabInWindow', () => {
     expect(chrome.tabs.update).not.toHaveBeenCalled();
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: tabUrl, active: true });
   });
+
+  test('should focus a live file: tab that is already open', async () => {
+    const window = { tabs: [{ id: 3, url: 'file:///home/me/doc.pdf', status: 'complete' }] };
+
+    await focusOrLoadTabInWindow(window, 'file:///home/me/doc.pdf');
+
+    expect(chrome.tabs.update).toHaveBeenCalledWith(3, { active: true });
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
+  });
+
+  test('should open a placeholder page instead of a missing file: tab', async () => {
+    const { toFileUrlPlaceholder } = await import('../js/common.js');
+    const tabUrl = 'file:///home/me/doc.pdf';
+
+    await focusOrLoadTabInWindow({ tabs: [] }, tabUrl);
+
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: toFileUrlPlaceholder(tabUrl), active: true });
+  });
 });

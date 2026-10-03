@@ -99,6 +99,19 @@ body {
     flex: 1;
     overflow: auto;
 }
+.switchError {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    color: #c62828;
+    background-color: #fdecea;
+    border: 1px solid #f5c6cb;
+    border-radius: 3px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.switchError[hidden] {
+    display: none;
+}
 
 .favicon {
     width: 16px;
