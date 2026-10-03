@@ -1,45 +1,40 @@
 #!/bin/bash
 
-# This script packages the extension for distribution.
+# This script packages the extension for distribution into build/spaces.zip.
 # It can be run from any directory.
-
-# Save the current working directory
-ORIGINAL_DIR=$(pwd)
-
-# Get the directory of the script itself
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-# The parent directory of the 'spaces' directory is where we want to run the zip command from.
-PARENT_DIR="$(dirname "$SCRIPT_DIR")"
-
-# Change to the parent directory
-cd "$PARENT_DIR"
 
 set -e
 
-if [[ ! -d "spaces" || ! -f "spaces/manifest.json" ]]; then
-    echo "Error: 'spaces' directory not found."
-    # Restore the directory before exiting
-    cd "$ORIGINAL_DIR"
+# Run from the directory containing this script (the repo root).
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+
+if [[ ! -f "manifest.json" ]]; then
+    echo "Error: manifest.json not found in $(pwd)."
     exit 1
 fi
 
-echo "Creating spaces.zip in $(pwd)..."
+# Make sure the manifest version matches the latest CHANGELOG entry.
+MANIFEST_VERSION=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' manifest.json)
+CHANGELOG_VERSION=$(sed -n 's/^## \[\([^]]*\)\].*/\1/p' CHANGELOG.md | head -n 1)
+if [[ "$MANIFEST_VERSION" != "$CHANGELOG_VERSION" ]]; then
+    echo "Error: manifest.json version ($MANIFEST_VERSION) does not match latest CHANGELOG.md entry ($CHANGELOG_VERSION)."
+    exit 1
+fi
 
-# Create the zip file, including the 'spaces' directory and specified files.
-zip -r spaces.zip \
-    spaces/css \
-    spaces/img \
-    spaces/js \
-    spaces/LICENSE \
-    spaces/manifest.json \
-    spaces/README.md \
-    spaces/*.html \
-    -x 'spaces/img/icon-dev.png'
+OUTPUT="build/spaces.zip"
+mkdir -p build
+rm -f "$OUTPUT"
 
-echo "Package created at spaces.zip"
+echo "Creating $OUTPUT for version $MANIFEST_VERSION..."
 
-# Restore the original working directory
-cd "$ORIGINAL_DIR"
+zip -r "$OUTPUT" \
+    css \
+    img \
+    js \
+    LICENSE \
+    manifest.json \
+    README.md \
+    *.html \
+    -x 'img/icon-dev.png'
 
-echo "Returned to $(pwd)"
+echo "Package created at $(pwd)/$OUTPUT"
