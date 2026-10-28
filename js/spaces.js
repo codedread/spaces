@@ -25,14 +25,25 @@ function renderSpacesList(spaces) {
     nodes.openSpaces.innerHTML = '';
     nodes.closedSpaces.innerHTML = '';
 
+    // Open spaces map 1:1 to normal Chrome windows (internal/popup windows are
+    // already filtered out by spacesService), so count windows and tabs here.
+    let windowCount = 0;
+    let tabCount = 0;
+
     spaces.forEach(space => {
         spaceEl = renderSpaceListEl(space);
         if (space.windowId) {
             nodes.openSpaces.appendChild(spaceEl);
+            windowCount += 1;
+            tabCount += space.tabs?.length || 0;
         } else {
             nodes.closedSpaces.appendChild(spaceEl);
         }
     });
+
+    if (nodes.openSpacesHeading) {
+        nodes.openSpacesHeading.textContent = formatOpenSpacesHeading(windowCount, tabCount);
+    }
 }
 
 function renderSpaceListEl(space) {
@@ -789,6 +800,7 @@ export function initializeSpaces() {
     // initialise global handles to key elements (singletons)
     nodes.home = document.getElementById('spacesHome');
     nodes.openSpaces = document.getElementById('openSpaces');
+    nodes.openSpacesHeading = document.getElementById('openSpacesHeading');
     nodes.closedSpaces = document.getElementById('closedSpaces');
     nodes.activeTabs = document.getElementById('activeTabs');
     nodes.historicalTabs = document.getElementById('historicalTabs');
@@ -904,14 +916,33 @@ async function getSpacesForBackup() {
     });
 }
 
+/**
+ * Builds the "Open Spaces" heading text, including the open tab and window counts.
+ *
+ * @param {number} windowCount - Number of open (normal) Chrome windows
+ * @param {number} tabCount - Number of tabs across those windows
+ * @returns {string} The heading text
+ *
+ * @example
+ * formatOpenSpacesHeading(2, 5) // returns: 'Open Spaces (5 tabs across 2 windows)'
+ * formatOpenSpacesHeading(1, 1) // returns: 'Open Spaces (1 tab across 1 window)'
+ */
+function formatOpenSpacesHeading(windowCount, tabCount) {
+    const tabs = `${tabCount} tab${tabCount === 1 ? '' : 's'}`;
+    const windows = `${windowCount} window${windowCount === 1 ? '' : 's'}`;
+    return `Open Spaces (${tabs} across ${windows})`;
+}
+
 // Export for testing
 export {
     addDuplicateMetadata,
+    formatOpenSpacesHeading,
     getSpacesForBackup,
     handleClose,
     handleCloseTab,
     handleLoadTab,
     normaliseTabUrl,
+    renderSpacesList,
     renderTabListEl,
 };
 

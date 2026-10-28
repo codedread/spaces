@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.12] - 2026-10-??
+
+- Spaces window now shows the number of open tabs and windows in the Open Spaces heading.
+
 ## [1.1.11] - 2026-10-02
 
 ### Changes
